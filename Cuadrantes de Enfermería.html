@@ -1,0 +1,894 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Cuadrantes de Enfermería</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Public+Sans:wght@400;500;600;700&display=swap">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<style>
+/* Diseño: mesa de trabajo de coordinación. Barra de acciones arriba, matriz a todo el ancho, panel de personal plegable, validación debajo. */
+:root{
+  --bg:#eff3f4; --panel:#ffffff; --panel2:#f6f9f9; --ink:#12232b; --muted:#587078; --line:#d3dde0;
+  --accent:#0d6b66; --accent-ink:#ffffff; --accent-soft:#d9efec;
+  --ok:#0f7a4a; --ok-soft:#d9f2e5; --bad:#b3261e; --bad-soft:#fbdedb; --warn-soft:#fdf0c9; --warn:#7a5200;
+  --m-bg:#d3efe2; --m-fg:#0a5a39; --t-bg:#fde7b0; --t-fg:#7a4a00; --n-bg:#3d2c70; --n-fg:#ffffff;
+  --l-bg:#e4e8ea; --l-fg:#5a6a72; --v-bg:#f9d3da; --v-fg:#9a1b38; --x-bg:#d8e5f4; --x-fg:#1c4c86;
+  --fest:#c62828; --dim:.45;
+  --font:'Public Sans',system-ui,-apple-system,'Segoe UI',sans-serif; --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e171b; --panel:#162329; --panel2:#1b2a31; --ink:#e6eef0; --muted:#93aab2; --line:#2b3d45;
+  --accent:#4fc1b8; --accent-ink:#06211f; --accent-soft:#17403d;
+  --ok:#5fd29a; --ok-soft:#14382a; --bad:#ff8b82; --bad-soft:#4a1f1c; --warn-soft:#46370f; --warn:#f2c867;
+  --m-bg:#17402f; --m-fg:#8fe0b9; --t-bg:#4a3a0c; --t-fg:#f6cf72; --n-bg:#6b58b8; --n-fg:#ffffff;
+  --l-bg:#233238; --l-fg:#8fa4ac; --v-bg:#4f2029; --v-fg:#ff9fb0; --x-bg:#1e3550; --x-fg:#9cc4f2;
+  --fest:#ff6b6b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e171b; --panel:#162329; --panel2:#1b2a31; --ink:#e6eef0; --muted:#93aab2; --line:#2b3d45;
+  --accent:#4fc1b8; --accent-ink:#06211f; --accent-soft:#17403d;
+  --ok:#5fd29a; --ok-soft:#14382a; --bad:#ff8b82; --bad-soft:#4a1f1c; --warn-soft:#46370f; --warn:#f2c867;
+  --m-bg:#17402f; --m-fg:#8fe0b9; --t-bg:#4a3a0c; --t-fg:#f6cf72; --n-bg:#6b58b8; --n-fg:#ffffff;
+  --l-bg:#233238; --l-fg:#8fa4ac; --v-bg:#4f2029; --v-fg:#ff9fb0; --x-bg:#1e3550; --x-fg:#9cc4f2;
+  --fest:#ff6b6b; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);padding-block:16px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px}
+.muted{color:var(--muted)}
+.btn{font:600 13px var(--font);padding:8px 12px;border-radius:5px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--panel2)}
+.btn:focus-visible,.cell:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.btn-primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn-primary:hover{background:var(--accent);filter:brightness(1.08)}
+.btn:disabled{opacity:.55;cursor:default}
+.inp{font:500 13px var(--font);padding:6px 8px;border:1px solid var(--line);border-radius:4px;background:var(--panel);color:var(--ink);min-width:0;max-width:100%}
+.lbl{font:600 11px var(--font);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+/* matriz */
+.grid-wrap{overflow:auto;max-height:78vh;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+table.mx{border-collapse:separate;border-spacing:0;font-size:12px}
+.mx th,.mx td{padding:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);text-align:center}
+.mx thead th{position:sticky;background:var(--panel2);z-index:3;font-weight:600}
+.mx thead tr:first-child th{top:0}
+.mx thead tr:nth-child(2) th{top:22px}
+.mx .nm{position:sticky;left:0;z-index:2;background:var(--panel);text-align:left;padding:0 10px;min-width:176px;max-width:176px;font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:1px 0 0 var(--line)}
+.mx thead .nm{z-index:4;background:var(--panel2)}
+.mx .sec td{background:var(--accent-soft);color:var(--accent);font:700 11px var(--font);letter-spacing:.08em;text-align:left;padding:3px 10px}
+.dh{min-width:34px;height:22px;line-height:22px;cursor:pointer;user-select:none}
+.dh.sun,.dh.fest{color:var(--fest)}
+.dh.fest.num{background:var(--fest);color:#fff}
+.dh.out{opacity:.6}
+.wk{min-width:38px;font:600 11px var(--mono);background:var(--panel2);color:var(--muted)}
+.wk.hi{background:#000;color:#ff3b30}.wk.zero{background:#ffeb3b;color:#111}.wk.lo{color:var(--bad)}
+.cell{display:block;width:34px;height:28px;line-height:28px;font:600 12px var(--mono);cursor:pointer;border:0;background:transparent;color:inherit;padding:0}
+.cell:hover{box-shadow:inset 0 0 0 2px var(--accent)}
+.c-m{background:var(--m-bg);color:var(--m-fg)}.c-t{background:var(--t-bg);color:var(--t-fg)}.c-n{background:var(--n-bg);color:var(--n-fg)}
+.c-l{background:var(--l-bg);color:var(--l-fg)}.c-v{background:var(--v-bg);color:var(--v-fg)}.c-x{background:var(--x-bg);color:var(--x-fg)}.c-e{background:transparent;color:var(--muted)}
+.out-col .cell{opacity:var(--dim)}
+.cell.locked{cursor:not-allowed}
+.sumrow td,.sumrow th{background:var(--panel2);font:600 12px var(--mono)}
+.sumrow .nm{font-family:var(--font)}
+.ok{background:var(--ok-soft)!important;color:var(--ok)}.bad{background:var(--bad-soft)!important;color:var(--bad)}
+.menu{position:fixed;z-index:50;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px;box-shadow:0 8px 28px rgba(0,0,0,.25);width:236px}
+.menu .mb{font:600 12px var(--mono);padding:7px 0;border-radius:4px;border:1px solid transparent;cursor:pointer;text-align:center}
+.menu .mb:hover{border-color:var(--accent)}
+.chip{display:inline-flex;align-items:center;gap:6px;font:600 12px var(--font);padding:3px 8px;border-radius:999px;background:var(--panel2);border:1px solid var(--line)}
+.chip.bad{border-color:var(--bad)}
+.legend-dot{display:inline-block;width:22px;height:18px;line-height:18px;border-radius:3px;font:600 11px var(--mono);text-align:center}
+details>summary{cursor:pointer;list-style:none}
+details>summary::-webkit-details-marker{display:none}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:6px;font:600 13px var(--font);z-index:60;max-width:92vw}
+.num{font-variant-numeric:tabular-nums}
+</style>
+
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script>
+/* Núcleo: reglas, generador de cuadrantes, validación y exportación a Excel */
+(function (root) {
+  'use strict';
+
+  const MONTHS = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+  const DOWL = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+  const DOWN = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+  // Leyenda idéntica a la del Excel de referencia: sigla, horas, descripción
+  const LEGEND = [
+    ['IC', 0, 'INCAPACIDAD'], ['L', 0, 'LIBRE'], ['M', 6, 'MAÑANA'], ['MA', 6, 'MAÑANA ADMINISTRATIVA'],
+    ['MB', 6, 'MAÑANA BÁSICO'], ['MC', 6, 'MAÑANA CANGURO'], ['MD', 6, 'MAÑANA DESINFECCIÓN'],
+    ['MLA', 6, 'MAÑANA LACTARIO'], ['MG', 6, 'MAÑANA GUARDIANES'], ['N', 12, 'NOCHE'], ['NB', 12, 'NOCHE BÁSICO'],
+    ['PAG', 6, 'PAGADO'], ['PAGN', 12, 'PAGADO NOCHE'], ['T', 6, 'TARDE'], ['TA', 6, 'TARDE ADMINISTRATIVA'],
+    ['TB', 6, 'TARDE BÁSICO'], ['TC', 6, 'TARDE CANGURO'], ['TLA', 6, 'TARDE LACTARIO'], ['V', 0, 'VACACIONES'],
+    ['LIC', 0, 'LICENCIA'], ['MT', 12, 'MAÑANA - TARDE'], ['BRI', 6, 'BRIGADA'],
+  ];
+  const LEGEND_JEF = [
+    ['IC', 0, 'INCAPACIDAD'], ['L', 0, 'LIBRE'], ['LIC', 0, 'LICENCIA'], ['M1', 6, 'MAÑANA ASISTENCIAL'], ['N2', 12, 'NOCHE'],
+    ['M2', 6, 'MAÑANA MEDICAMENTO'], ['MT', 12, 'MAÑANA-TARDE'], ['N1', 12, 'NOCHE'], ['PAG', 6, 'PAGADO'], ['T1', 6, 'TARDE ASISTENCIAL'],
+    ['TAD', 6, 'TARDE ADMINISTRATIVO'], ['T2', 6, 'TARDE MEDICAMENTO'], ['V', 0, 'VACACIONES'], ['BRI', 6, 'BRIGADA'], ['MAD', 6, 'MAÑANA ADMINISTRATIVO'],
+  ];
+  const LEGENDS = { aux: LEGEND, jef: LEGEND_JEF };
+  const REGEN = { aux: ['M', 'T', 'N', 'L', 'V'], jef: ['M', 'T', 'N', 'L', 'V', 'M1', 'M2', 'T1', 'T2', 'N1', 'N2'] };
+  const HOURS = {};
+  LEGEND.concat(LEGEND_JEF).forEach(([c, h]) => (HOURS[c] = h));
+
+  const DEFAULT_CFG = { M: 7, T: 6, TThu: 7, N: 5, weeklyHours: 36 };
+  const PATTERN = [1, 2, 2, 1]; // trasnochos por semana: S1, S2, S3, S4
+
+  const DAY = 864e5;
+  const keyOf = (t) => new Date(t).toISOString().slice(0, 10);
+  const fam = (c) => { const x = c ? c.charAt(0) : ''; return x === 'M' || x === 'T' || x === 'N' ? x : null; };
+  const hoursOf = (c) => (c && HOURS[c]) || 0;
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /** Semanas completas Dom–Sáb que cubren el mes (igual que el Excel de referencia). */
+  function buildGrid(year, month) {
+    const first = Date.UTC(year, month, 1);
+    const last = Date.UTC(year, month + 1, 0);
+    const start = first - new Date(first).getUTCDay() * DAY;
+    const end = last + (6 - new Date(last).getUTCDay()) * DAY;
+    const days = [];
+    for (let t = start; t <= end; t += DAY) {
+      const dt = new Date(t);
+      days.push({ key: keyOf(t), dom: dt.getUTCDate(), dow: dt.getUTCDay(), inMonth: t >= first && t <= last, week: Math.round((t - start) / DAY / 7 - 0.4999) });
+    }
+    return days;
+  }
+
+  const reqFor = (cfg, dow) => ({ M: cfg.M, T: dow === 4 ? cfg.TThu : cfg.T, N: cfg.N });
+  const dayHoursReq = (cfg, dow) => { const r = reqFor(cfg, dow); return (r.M + r.T) * 6 + r.N * 12; };
+  const inVac = (s, key) => (s.vac || []).some((v) => v.from && v.to && key >= v.from && key <= v.to);
+
+  function weekRanges(days) {
+    const w = [];
+    days.forEach((d, i) => { if (!w[d.week]) w[d.week] = [i, i]; else w[d.week][1] = i; });
+    return w;
+  }
+
+  /**
+   * Genera el cuadrante. Devuelve { rows } con rows[p][d] = sigla.
+   * existing: { 'YYYY-MM-DD': { staffId: sigla } } (datos ya guardados de otros meses / ediciones especiales)
+   */
+  function generate({ staff, days, existing = {}, cfg = DEFAULT_CFG, seed = 1, keepSpecial = true, iterations = 120000, regen = REGEN.aux, slots = false }) {
+    const P = staff.length, D = days.length, rnd = mulberry32(seed);
+    const code = [], lock = [];
+    for (let p = 0; p < P; p++) {
+      const row = [], lk = [];
+      for (let d = 0; d < D; d++) {
+        const day = days[d]; let c = null, l = false;
+        if (inVac(staff[p], day.key)) { c = 'V'; l = true; }
+        else {
+          const st = existing[day.key] && existing[day.key][staff[p].id];
+          if (st) {
+            const special = !regen.includes(st);
+            if (!day.inMonth) { c = st; l = true; }
+            else if (special && keepSpecial) { c = st; l = true; }
+          }
+        }
+        row.push(c); lk.push(l);
+      }
+      code.push(row); lock.push(lk);
+    }
+    const weeks = weekRanges(days);
+    let ph = 0; const phase = staff.map((s) => (s.noNights ? 0 : ph++));
+    const nTarget = (p, w) => (staff[p].noNights ? 0 : PATTERN[(w + phase[p]) % 4]);
+
+    // ---------- Construcción inicial, día a día ----------
+    const weekH = new Array(P).fill(0), weekN = new Array(P).fill(0), consec = new Array(P).fill(0);
+    const mC = new Array(P).fill(0), tC = new Array(P).fill(0);
+    for (let d = 0; d < D; d++) {
+      const w = days[d].week, req = reqFor(cfg, days[d].dow);
+      if (d === 0 || days[d - 1].week !== w) { weekH.fill(0); weekN.fill(0); }
+      const cov = { M: 0, T: 0, N: 0 };
+      const cand = [];
+      for (let p = 0; p < P; p++) {
+        if (code[p][d] === null) {
+          if (d > 0 && fam(code[p][d - 1]) === 'N') code[p][d] = 'L'; // recuperación post-noche
+          else cand.push(p);
+        } else if (fam(code[p][d])) cov[fam(code[p][d])]++;
+      }
+      const needN = Math.max(0, req.N - cov.N);
+      const nCand = cand.filter((p) => !staff[p].noNights)
+        .map((p) => [p, -(nTarget(p, w) - weekN[p]) * 10 + weekH[p] * 0.3 + consec[p] * 2 + rnd() * 3])
+        .sort((a, b) => a[1] - b[1]);
+      const chosenN = new Set(nCand.slice(0, needN).map((x) => x[0]));
+      chosenN.forEach((p) => (code[p][d] = 'N'));
+      const rest = cand.filter((p) => !chosenN.has(p))
+        .map((p) => [p, weekH[p] + 4 * consec[p] + (weekH[p] >= cfg.weeklyHours ? 20 : 0) + rnd() * 4])
+        .sort((a, b) => a[1] - b[1]);
+      const needM = Math.max(0, req.M - cov.M), needT = Math.max(0, req.T - cov.T);
+      const picked = rest.slice(0, needM + needT).map((x) => x[0]);
+      const ordered = picked.map((p) => [p, mC[p] - tC[p] + (d > 0 && fam(code[p][d - 1]) === 'T' ? 3 : 0) + rnd()]).sort((a, b) => a[1] - b[1]).map((x) => x[0]);
+      ordered.forEach((p, i) => (code[p][d] = i < needM ? 'M' : 'T'));
+      cand.forEach((p) => { if (code[p][d] === null) code[p][d] = 'L'; });
+      for (let p = 0; p < P; p++) {
+        const f = fam(code[p][d]);
+        weekH[p] += hoursOf(code[p][d]);
+        if (f === 'N') weekN[p]++;
+        consec[p] = f ? consec[p] + 1 : 0;
+        if (days[d].inMonth) { if (f === 'M') mC[p]++; if (f === 'T') tC[p]++; }
+      }
+    }
+
+    // ---------- Mejora por intercambios (mantiene la cobertura de cada día) ----------
+    function pc(p) {
+      const row = code[p]; let c = 0;
+      weeks.forEach(([a, b], wi) => {
+        let h = 0, n = 0, la = 0;
+        for (let d = a; d <= b; d++) {
+          const x = row[d]; h += hoursOf(x);
+          if (fam(x) === 'N') n++;
+          if (lock[p][d] && !fam(x) && x !== 'L') la++;
+        }
+        const tgt = (cfg.weeklyHours * (7 - la)) / 7;
+        { const dv = Math.abs(h - tgt); c += 4 * dv + 0.4 * dv * dv; }
+        c += 5 * Math.abs(n - nTarget(p, wi));
+        if (n > 2) c += 30 * (n - 2);
+      });
+      let run = 0, sat = false, sun = false, hasSat = false, hasSun = false, m = 0, t = 0;
+      for (let d = 0; d < D; d++) {
+        const f = fam(row[d]);
+        run = f ? run + 1 : 0;
+        if (run > 5) c += 40 * (run - 5);
+        if (f === 'N') {
+          if (staff[p].noNights) c += 1000;
+          if (d + 1 < D && fam(row[d + 1])) c += 1000;
+        }
+        if (f === 'T' && d + 1 < D && fam(row[d + 1]) === 'M') c += 2;
+        if (days[d].inMonth) {
+          if (f === 'M') m++; if (f === 'T') t++;
+          const free = !f && !(d > 0 && fam(row[d - 1]) === 'N');
+          if (days[d].dow === 6) { hasSat = true; if (free) sat = true; }
+          if (days[d].dow === 0) { hasSun = true; if (free) sun = true; }
+        }
+      }
+      if (hasSat && !sat) c += 300;
+      if (hasSun && !sun) c += 300;
+      return c + 1.5 * Math.abs(m - t);
+    }
+    const costs = []; for (let p = 0; p < P; p++) costs.push(pc(p));
+    if (P > 1) {
+      const T0 = 25, T1 = 0.4;
+      for (let it = 0; it < iterations; it++) {
+        const Tm = T0 * Math.pow(T1 / T0, it / iterations);
+        const a = (rnd() * P) | 0, b = (rnd() * P) | 0; if (a === b) continue;
+        const r = rnd(), len = r < 0.1 ? 3 : r < 0.4 ? 2 : 1;
+        const d0 = (rnd() * (D - len + 1)) | 0;
+        let ok = true, diff = false;
+        for (let k = d0; k < d0 + len; k++) {
+          if (lock[a][k] || lock[b][k]) { ok = false; break; }
+          if (code[a][k] !== code[b][k]) diff = true;
+          if (staff[a].noNights && fam(code[b][k]) === 'N') ok = false;
+          if (staff[b].noNights && fam(code[a][k]) === 'N') ok = false;
+        }
+        if (!ok || !diff) continue;
+        for (let k = d0; k < d0 + len; k++) { const x = code[a][k]; code[a][k] = code[b][k]; code[b][k] = x; }
+        const ca = pc(a), cb = pc(b), delta = ca + cb - costs[a] - costs[b];
+        if (delta <= 0 || rnd() < Math.exp(-delta / Tm)) { costs[a] = ca; costs[b] = cb; }
+        else for (let k = d0; k < d0 + len; k++) { const x = code[a][k]; code[a][k] = code[b][k]; code[b][k] = x; }
+      }
+    }
+    if (slots) {
+      const c1 = staff.map(() => ({ M: 0, T: 0, N: 0 })), c2 = staff.map(() => ({ M: 0, T: 0, N: 0 }));
+      for (let d = 0; d < D; d++) {
+        ['M', 'T', 'N'].forEach((F) => {
+          const bare = [], taken = new Set(); let total = 0;
+          for (let p = 0; p < P; p++) {
+            const x = code[p][d];
+            if (x === F) { bare.push(p); total++; }
+            else if (x && x.charAt(0) === F && /^[A-Z]\d$/.test(x)) { taken.add(+x.charAt(1)); total++; }
+          }
+          const nSlots = Math.max(total, reqFor(cfg, days[d].dow)[F]);
+          const avail = []; for (let k = 1; k <= nSlots; k++) if (!taken.has(k)) avail.push(k);
+          bare.map((p) => [p, c1[p][F] - c2[p][F] + rnd() * 0.5]).sort((a, b) => a[1] - b[1]).forEach(([p], i) => {
+            const k = avail[i] || 2; code[p][d] = F + k; if (k === 1) c1[p][F]++; else c2[p][F]++;
+          });
+        });
+      }
+    }
+    return { rows: code, lock };
+  }
+
+  /** Validación de cobertura y de reglas por auxiliar. */
+  function validate({ staff, days, rows, cfg = DEFAULT_CFG }) {
+    const weeks = weekRanges(days);
+    const coverage = days.map((d, i) => {
+      const c = { M: 0, T: 0, N: 0 };
+      rows.forEach((r) => { const f = fam(r[i]); if (f) c[f]++; });
+      const req = reqFor(cfg, d.dow);
+      return { ...c, req, ok: c.M >= req.M && c.T >= req.T && c.N >= req.N, hours: rows.reduce((s, r) => s + hoursOf(r[i]), 0), hoursReq: dayHoursReq(cfg, d.dow) };
+    });
+    const people = staff.map((s, p) => {
+      const row = rows[p]; const issues = [];
+      const weekHours = weeks.map(([a, b]) => { let h = 0; for (let d = a; d <= b; d++) h += hoursOf(row[d]); return h; });
+      const nWeek = weeks.map(([a, b]) => { let n = 0; for (let d = a; d <= b; d++) if (fam(row[d]) === 'N') n++; return n; });
+      let sat = false, sun = false, hasSat = false, hasSun = false, run = 0, maxRun = 0, nAfter = 0;
+      for (let d = 0; d < days.length; d++) {
+        const f = fam(row[d]);
+        run = f ? run + 1 : 0; maxRun = Math.max(maxRun, run);
+        if (f === 'N' && d + 1 < days.length && fam(row[d + 1])) nAfter++;
+        if (days[d].inMonth) {
+          const free = !f && !(d > 0 && fam(row[d - 1]) === 'N');
+          if (days[d].dow === 6) { hasSat = true; sat = sat || free; }
+          if (days[d].dow === 0) { hasSun = true; sun = sun || free; }
+        }
+      }
+      if (hasSat && !sat) issues.push('Sin sábado libre');
+      if (hasSun && !sun) issues.push('Sin domingo libre');
+      if (nAfter) issues.push('Trabaja justo después de un trasnocho (' + nAfter + ')');
+      if (maxRun > 6) issues.push('Más de 6 días seguidos');
+      return { name: s.name, weekHours, nWeek, satFree: sat, sunFree: sun, issues };
+    });
+    const gaps = coverage.filter((c) => !c.ok).length;
+    return { coverage, people, gaps, weeks };
+  }
+
+  /** ---------- Exportación Excel (misma estructura que el cuadrante de referencia) ---------- */
+  const colL = (n) => { let s = ''; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = ((n - 1) / 26) | 0; } return s; };
+  const thin = { style: 'thin', color: { argb: 'FF000000' } };
+  const BORDER = { top: thin, left: thin, bottom: thin, right: thin };
+  const argbFill = (rgb) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb: rgb }, bgColor: { argb: rgb } });
+  const dxfFill = (rgb) => ({ type: 'pattern', pattern: 'solid', bgColor: { argb: rgb } });
+
+  const STYLES = {
+    aux: { prefix: 'AUXILIARES', title: 'TURNOS AUXILIARES DE ENFERMERIA UCN', nameW: 26, first: 5, mergeTo: 3, dayW: 5.7, font: 13, letters: 5, filler: [2.7, 1.4, 2.7] },
+    jef: { prefix: 'JEFES', title: 'TURNOS DE ENFERMERAS', nameW: 26, first: 2, mergeTo: 1, dayW: 5.4, font: 11, letters: 6, filler: [] },
+  };
+
+  function addMonthSheet(wb, m) {
+    const { year, month, staff, days, rows, holidays = {}, cfg = DEFAULT_CFG, coordinator = {}, kind = 'aux', footnote = '' } = m;
+    const S = STYLES[kind], LEG = LEGENDS[kind];
+    const label = MONTHS[month] + ' ' + year;
+    const R5 = S.letters, R6 = R5 + 1, R7 = R5 + 2;
+    const ws = wb.addWorksheet(S.prefix + ' ' + label, { views: [{ state: 'frozen', xSplit: S.first - 1, ySplit: R6, showGridLines: false }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 1 } });
+    const nW = Math.ceil(days.length / 7), first = S.first, lastCol = first + nW * 8 - 1;
+    const legCol = lastCol + 3, legFirst = 5, legLast = legFirst + LEG.length - 1;
+    const legRange = `$${colL(legCol)}$${legFirst}:$${colL(legCol + 2)}$${legLast}`;
+    const F = S.font;
+
+    ws.getColumn(1).width = S.nameW; S.filler.forEach((w, i) => (ws.getColumn(2 + i).width = w));
+    for (let c = first; c <= lastCol; c++) ws.getColumn(c).width = S.dayW;
+    ws.getColumn(legCol).width = 9; ws.getColumn(legCol + 1).width = 9; ws.getColumn(legCol + 2).width = 30;
+    ws.getRow(1).height = 7.5; ws.getRow(2).height = 25.9; ws.getRow(3).height = 25.9; ws.getRow(4).height = 16;
+
+    ws.mergeCells(2, first, 2, lastCol); ws.mergeCells(3, first, 3, lastCol);
+    const t2 = ws.getCell(2, first); t2.value = S.title; t2.font = { name: 'Tahoma', size: 14, bold: true }; t2.alignment = { horizontal: 'center', vertical: 'middle' };
+    const t3 = ws.getCell(3, first); t3.value = label.replace(' ', '. '); t3.font = { name: 'Tahoma', size: 20, bold: true }; t3.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    ws.getRow(R5).height = 17.1; ws.getRow(R6).height = 17.1;
+    days.forEach((d, i) => {
+      const col = first + Math.floor(i / 7) * 8 + (i % 7);
+      const hol = holidays[d.key];
+      const red = d.dow === 0 || hol;
+      const c5 = ws.getCell(R5, col), c6 = ws.getCell(R6, col);
+      c5.value = DOWL[d.dow]; c6.value = d.dom;
+      [c5, c6].forEach((c) => { c.font = { name: 'Tahoma', size: F, bold: true, color: { argb: red ? 'FFFF0000' : 'FF000000' } }; c.alignment = { horizontal: 'center', vertical: 'middle' }; c.border = BORDER; c.fill = argbFill('FFFFFFFF'); });
+      if (hol) { c6.fill = argbFill('FFFF0000'); c6.font = { name: 'Tahoma', size: F, bold: true, color: { argb: 'FFFFFFFF' } }; }
+      if (!d.inMonth) { c6.font = { ...c6.font, italic: true }; }
+    });
+    for (let w = 0; w < nW; w++) { const c = ws.getCell(R5, first + w * 8 + 7); c.value = 'HRS'; c.font = { name: 'Tahoma', size: 9, bold: true }; c.alignment = { horizontal: 'center', vertical: 'middle' }; c.border = BORDER; }
+
+    let r = R7; const hourRows = []; const codeRows = []; let lastSection = '';
+    staff.forEach((s, p) => {
+      const sec = (s.section || '').trim();
+      if (sec && sec !== lastSection) {
+        if (S.mergeTo > 1) ws.mergeCells(r, 1, r, S.mergeTo);
+        const c = ws.getCell(r, 1); c.value = sec.toUpperCase(); c.font = { name: 'Tahoma', size: 13, bold: true }; c.fill = argbFill('FF92D050'); c.alignment = { horizontal: 'center', vertical: 'middle' }; c.border = BORDER;
+        ws.getRow(r).height = 17.1; r++;
+      }
+      lastSection = sec;
+      const cr = r, hr = r + 1; codeRows.push(cr); hourRows.push(hr);
+      ws.getRow(cr).height = 17.1; ws.getRow(hr).height = 17.1;
+      ws.mergeCells(cr, 1, hr, S.mergeTo);
+      const n = ws.getCell(cr, 1); n.value = s.name.toUpperCase(); n.font = { name: 'Tahoma', size: s.name.length > 20 ? 10 : 13, bold: true }; n.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; n.border = BORDER;
+      for (let i = 0; i < days.length; i++) {
+        const col = first + Math.floor(i / 7) * 8 + (i % 7), L = colL(col);
+        const v = rows[p][i] || '';
+        const a = ws.getCell(cr, col); a.value = v; a.font = { name: 'Tahoma', size: F, bold: true }; a.alignment = { horizontal: 'center', vertical: 'middle' }; a.border = BORDER; a.fill = argbFill('FFFFFFFF'); a.numFmt = '@';
+        const b = ws.getCell(hr, col); b.value = { formula: `IFERROR(VLOOKUP(${L}${cr},${legRange},2,FALSE),0)`, result: hoursOf(v) }; b.font = { name: 'Tahoma', size: 10, bold: true }; b.alignment = { horizontal: 'center', vertical: 'middle' }; b.border = BORDER;
+      }
+      for (let w = 0; w < nW; w++) {
+        const c0 = first + w * 8, sc = c0 + 7; ws.mergeCells(cr, sc, hr, sc);
+        let tot = 0; for (let k = 0; k < 7; k++) tot += hoursOf(rows[p][w * 7 + k]);
+        const c = ws.getCell(cr, sc); c.value = { formula: `SUM(${colL(c0)}${hr}:${colL(c0 + 6)}${hr})`, result: tot };
+        c.font = { name: 'Tahoma', size: F, bold: true }; c.alignment = { horizontal: 'center', vertical: 'middle' }; c.border = BORDER;
+      }
+      r += 2;
+    });
+    const lastRow = r - 1;
+
+    ws.getRow(r).height = 17.1;
+    const totRow = r;
+    for (let i = 0; i < days.length; i++) {
+      const col = first + Math.floor(i / 7) * 8 + (i % 7), L = colL(col);
+      const c = ws.getCell(r, col); c.value = { formula: hourRows.map((h) => `${L}${h}`).join('+'), result: rows.reduce((s, x) => s + hoursOf(x[i]), 0) };
+      c.font = { name: 'Tahoma', size: 10, bold: true }; c.alignment = { horizontal: 'center', vertical: 'middle' }; c.border = BORDER;
+      const req = dayHoursReq(cfg, days[i].dow);
+      ws.addConditionalFormatting({ ref: `${L}${r}`, rules: [
+        { type: 'cellIs', operator: 'greaterThan', formulae: [req], priority: 1, style: { fill: dxfFill('FF4360D9'), font: { color: { argb: 'FFFFFFFF' } } } },
+        { type: 'cellIs', operator: 'lessThan', formulae: [req], priority: 2, style: { fill: dxfFill('FFFF0000'), font: { color: { argb: 'FFFFFFFF' } } } },
+        { type: 'cellIs', operator: 'equal', formulae: [req], priority: 3, style: { fill: dxfFill('FF4360D9'), font: { color: { argb: 'FFFFFFFF' } } } },
+      ] });
+    }
+    for (let w = 0; w < nW; w++) {
+      const sc = first + w * 8 + 7;
+      const c = ws.getCell(r, sc);
+      let tot = 0; for (let k = 0; k < 7; k++) tot += rows.reduce((s, x) => s + hoursOf(x[w * 7 + k]), 0);
+      c.value = { formula: codeRows.map((x) => `${colL(sc)}${x}`).join('+'), result: tot }; c.font = { name: 'Tahoma', size: 10, bold: true }; c.alignment = { horizontal: 'center' }; c.border = BORDER;
+    }
+
+    const ref = `${colL(first)}${R7}:${colL(lastCol)}${lastRow}`, tl = `${colL(first)}${R7}`;
+    const cf = (n, f, st) => ({ type: 'expression', formulae: [f], priority: n, style: st });
+    const eq = (list) => 'OR(' + list.map((x) => `${tl}="${x}"`).join(',') + ')';
+    ws.addConditionalFormatting({ ref, rules: [
+      cf(1, eq(['V', 'IC', 'LIC', 'MG', 'MP']), { fill: dxfFill('FFFFFF00') }),
+      cf(2, eq(['N', 'NB', 'N1', 'N2']), { fill: dxfFill('FF00B0F0') }),
+      cf(3, eq(['MB']), { fill: dxfFill('FF3CC889') }),
+      cf(4, eq(['TB']), { fill: dxfFill('FFFF33CC') }),
+      cf(5, eq(['MA', 'TA', 'MAD', 'TAD']), { fill: dxfFill('FFF19E65') }),
+      cf(6, eq(['MLA', 'TLA']), { fill: dxfFill('FFBC8FDD') }),
+      cf(7, eq(['L', 'MD']), { font: { color: { argb: 'FFFF0000' } } }),
+      cf(8, eq(['MC', 'TC', 'PAG', 'PAGN']), { font: { color: { argb: 'FF7030A0' } } }),
+    ] });
+    const W = cfg.weeklyHours;
+    for (let w = 0; w < nW; w++) {
+      const sc = colL(first + w * 8 + 7);
+      ws.addConditionalFormatting({ ref: `${sc}${R7}:${sc}${lastRow}`, rules: [
+        { type: 'cellIs', operator: 'greaterThan', formulae: [W], priority: 1, style: { fill: dxfFill('FF000000'), font: { color: { argb: 'FFFF0000' } } } },
+        { type: 'cellIs', operator: 'equal', formulae: [0], priority: 2, style: { fill: dxfFill('FFFFFF00') } },
+        { type: 'cellIs', operator: 'between', formulae: [1, W - 1], priority: 3, style: { font: { color: { argb: 'FFFF0000' } } } },
+      ] });
+    }
+
+    const cr0 = totRow + 3;
+    days.forEach((d, i) => {
+      const col = first + Math.floor(i / 7) * 8 + (i % 7);
+      const a = ws.getCell(cr0 - 1, col); a.value = DOWL[d.dow]; a.font = { name: 'Tahoma', size: 10, bold: true, color: { argb: d.dow === 0 || holidays[d.key] ? 'FFFF0000' : 'FF000000' } }; a.alignment = { horizontal: 'center' };
+    });
+    ['M', 'T', 'N'].forEach((k, j) => {
+      const rr = cr0 + j; ws.getRow(rr).height = 16.5;
+      if (kind === 'aux') {
+        const lab = ws.getCell(rr, 4); lab.value = k; lab.font = { name: 'Tahoma', size: 11, bold: true };
+        if (j === 0) { const l2 = ws.getCell(rr, 1); l2.value = 'COBERTURA DIARIA (mín. requerido)'; l2.font = { name: 'Tahoma', size: 10, bold: true }; }
+      } else { const l2 = ws.getCell(rr, 1); l2.value = k; l2.font = { name: 'Tahoma', size: 11, bold: true }; }
+      days.forEach((d, i) => {
+        const col = first + Math.floor(i / 7) * 8 + (i % 7), L = colL(col);
+        const cnt = rows.reduce((s, x) => s + (fam(x[i]) === k ? 1 : 0), 0);
+        const c = ws.getCell(rr, col); c.value = { formula: `COUNTIF(${L}${R7}:${L}${lastRow},"${k}*")`, result: cnt };
+        c.font = { name: 'Tahoma', size: 10, bold: true }; c.alignment = { horizontal: 'center' }; c.border = BORDER;
+        const req = reqFor(cfg, d.dow)[k];
+        ws.addConditionalFormatting({ ref: `${L}${rr}`, rules: [
+          { type: 'cellIs', operator: 'lessThan', formulae: [req], priority: 1, style: { fill: dxfFill('FFFF0000'), font: { color: { argb: 'FFFFFFFF' } } } },
+        ] });
+      });
+    });
+
+    let rr = cr0 + 5;
+    if (coordinator.name) { const c = ws.getCell(rr, 1); c.value = coordinator.name.toUpperCase(); c.font = { name: 'Tahoma', size: 11, bold: true }; rr++; }
+    if (coordinator.role) { const c = ws.getCell(rr, 1); c.value = coordinator.role.toUpperCase(); c.font = { name: 'Tahoma', size: 11, bold: true }; rr++; }
+    String(footnote || '').split('\n').filter((x) => x.trim()).forEach((line) => { const c = ws.getCell(rr, 1); c.value = line; c.font = { name: 'Tahoma', size: 10, bold: true }; rr++; });
+
+    ['SIGLA', 'TIEMPO', 'DESCRIPCIÓN'].forEach((h, k) => { const c = ws.getCell(4, legCol + k); c.value = h; c.font = { name: 'Tahoma', size: 11, bold: true }; c.border = BORDER; c.alignment = { horizontal: 'center' }; });
+    LEG.forEach(([s, h, dsc], k) => {
+      [s, h, dsc].forEach((v, j) => { const c = ws.getCell(legFirst + k, legCol + j); c.value = v; c.font = { name: 'Tahoma', size: 11 }; c.border = BORDER; if (j < 2) c.alignment = { horizontal: 'center' }; });
+    });
+    ws.pageSetup.printArea = `A1:${colL(lastCol)}${rr + 1}`;
+    return ws;
+  }
+
+  function buildWorkbook(ExcelJS, months) {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Cuadrantes de turnos'; wb.created = new Date();
+    months.forEach((m) => addMonthSheet(wb, m));
+    return wb;
+  }
+
+  const api = { MONTHS, DOWL, DOWN, LEGEND, LEGENDS, REGEN, HOURS, DEFAULT_CFG, PATTERN, buildGrid, generate, validate, buildWorkbook, fam, hoursOf, reqFor, dayHoursReq, inVac, colL };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Turnos = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useEffect, useRef, useCallback } = React;
+const T = window.Turnos;
+const STORE_KEY = 'cuadrantes-enfermeria-v2';
+
+const NAMES_AUX = ['ADRIANA NOGUERA','ANGELITA ROMO','MARCELA PARRA','ANA ROSALES','DIANA CHACHINOY','JANETH URBANO','ADRIANA PANTOJA','AMANDA BOTINA','KAROL ORTEGA','XIMENA REYES','JANET LAGOS','MARTHA BASANTE','ANGELA ALVAREZ','ERIKA BOLAÑOS','ELIANA CABRERA','VERONICA LÓPEZ','ALEXANDER CUASTUMAL','LEIDY MARTÍNEZ','VANESA BARRERA','MARY CRUZ TARAPUES','MERY ANDREA JIMENEZ','YAMILET MENESES','ADRIANA BOLAÑOS','LEIDY YANIRA ACHICANOY','ILDA MAIGUAL','DANIELA CASTRO','GABRIELA TULCAN'];
+const NAMES_JEF = ['NATHALIA CIFUENTES','MARIA ALEJANDRA NARVAEZ','VERONICA GUERRERO','LUIS ARIAS','TITO GOMEZ','PAOLA MARTINEZ','MIGUEL CORDOBA','ANYELLY AHUMADA','JAZMIN PINTO','LUZDEY GUAMPE'];
+const GROUPS = { jef: { label: 'Jefes', one: 'jefe' }, aux: { label: 'Auxiliares', one: 'auxiliar' } };
+const ORDER = ['jef', 'aux'];
+const MAIN = { aux: ['M', 'T', 'N', 'L'], jef: ['M1', 'M2', 'T1', 'T2', 'N1', 'N2', 'L'] };
+
+const defaultGroups = () => ({
+  jef: {
+    staff: NAMES_JEF.map((n, i) => ({ id: 'j' + (i + 1), name: n, section: '', noNights: false, vac: [] })),
+    cfg: { M: 2, T: 2, TThu: 2, N: 2, weeklyHours: 36 }, months: [],
+    coordinator: { name: 'SANDRA LÓPEZ S.', role: 'COORDINADORA ENF.UCN' },
+    footnote: 'MAÑANA 1    TARDE 1\nMAÑANA 2    TARDE 2\nNOCHE 1 - 2\nMAÑANA -TARDE ADMINISTRATIVO\nQUIEN ESTE ASIGNADO CON LOS SEGUNDOS PACIENTES ES EL LÍDER DE EMERGENCIAS DURANTE EL TURNO',
+  },
+  aux: {
+    staff: [
+      ...NAMES_AUX.map((n, i) => ({ id: 'a' + (i + 1), name: n, section: '', noNights: false, vac: [] })),
+      { id: 'a28', name: 'SANDRA SANTACRUZ', section: 'LACTARIO', noNights: true, vac: [] },
+      { id: 'a29', name: 'LORENA DAVID', section: 'LACTARIO', noNights: true, vac: [] },
+    ],
+    cfg: { ...T.DEFAULT_CFG }, months: [], coordinator: { name: 'SANDRA LÓPEZ S.', role: 'COORDINACIÓN ENF. UCN' }, footnote: '',
+  },
+});
+// Festivos de Colombia 2026 (Ley Emiliani)
+const FEST_2026 = ['2026-01-01','2026-01-12','2026-03-23','2026-04-02','2026-04-03','2026-05-01','2026-05-18','2026-06-08','2026-06-15','2026-06-29','2026-07-20','2026-08-07','2026-08-17','2026-10-12','2026-11-02','2026-11-16','2026-12-08','2026-12-25'];
+const toHol = (a) => Object.fromEntries(a.map((k) => [k, true]));
+
+function nextMonth() { const d = new Date(); return { year: d.getMonth() === 11 ? d.getFullYear() + 1 : d.getFullYear(), month: (d.getMonth() + 1) % 12 }; }
+
+function loadState() {
+  try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); if (s && s.groups && s.cells) return s; } catch (e) {}
+  const nm = nextMonth();
+  return { tab: 'jef', groups: defaultGroups(), cells: {}, holidays: toHol(FEST_2026), year: nm.year, month: nm.month, nextId: 100, fresh: true };
+}
+
+const codeClass = (c) => !c ? 'c-e' : (c === 'V' || c === 'IC' || c === 'LIC') ? 'c-v' : c === 'L' ? 'c-l' : T.fam(c) === 'M' ? 'c-m' : T.fam(c) === 'T' ? 'c-t' : T.fam(c) === 'N' ? 'c-n' : 'c-x';
+const pad2 = (n) => String(n).padStart(2, '0');
+const mkey = (y, m) => y + '-' + pad2(m + 1);
+const addDaysStr = (s, n) => new Date(Date.parse(s) + n * 864e5).toISOString().slice(0, 10);
+const diffDays = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5) + 1;
+const rowsOf = (staff, days, cells) => staff.map((s) => days.map((d) => (T.inVac(s, d.key) ? 'V' : (cells[d.key] && cells[d.key][s.id]) || '')));
+
+const Cell = React.memo(function Cell({ k, id, v, locked, onOpen, legend }) {
+  return (
+    <td>
+      <button type="button" className={'cell ' + codeClass(v) + (locked ? ' locked' : '')} aria-label={v || 'vacío'} onClick={(e) => !locked && onOpen(e.currentTarget, k, id)} title={locked ? 'Vacaciones: se edita en el panel de personal' : (legend.find((x) => x[0] === v) || [])[2] || 'Sin asignar'}>
+        {v || '·'}
+      </button>
+    </td>
+  );
+});
+
+function CodeMenu({ menu, legend, main, onPick, onClose }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    const k = (e) => { if (e.key === 'Escape') onClose(); };
+    setTimeout(() => document.addEventListener('mousedown', h), 0);
+    document.addEventListener('keydown', k);
+    return () => { document.removeEventListener('mousedown', h); document.removeEventListener('keydown', k); };
+  }, []);
+  const W = 236, H = 250;
+  const left = Math.min(Math.max(8, menu.x), window.innerWidth - W - 8);
+  const top = menu.y + H > window.innerHeight ? Math.max(8, menu.y - H - 34) : menu.y;
+  const rest = legend.map((x) => x[0]).filter((c) => !main.includes(c) && c !== 'V');
+  const btn = (c) => <button key={c} type="button" className={'mb ' + codeClass(c)} onClick={() => onPick(c)} title={(legend.find((x) => x[0] === c) || [])[2]}>{c}</button>;
+  return (
+    <div ref={ref} className="menu" style={{ left, top }} role="dialog" aria-label="Elegir turno">
+      <div className="grid grid-cols-4 gap-1 mb-2">{main.map(btn)}</div>
+      <div className="grid grid-cols-5 gap-1">{rest.map(btn)}</div>
+      <div className="mt-2 flex justify-between items-center">
+        <button type="button" className="btn" style={{ padding: '4px 8px', fontSize: 12 }} onClick={() => onPick('')}>Borrar</button>
+        <span className="muted" style={{ fontSize: 11 }}>{menu.name}</span>
+      </div>
+    </div>
+  );
+}
+
+function StaffPanel({ G, kind, updG, onDelete, nextId }) {
+  const [armed, setArmed] = useState(null);
+  const upd = (id, patch) => updG((g) => ({ ...g, staff: g.staff.map((x) => (x.id === id ? { ...x, ...patch } : x)) }));
+  const add = () => { const id = (kind === 'jef' ? 'j' : 'a') + nextId(); updG((g) => ({ ...g, staff: [...g.staff, { id, name: 'NUEVO ' + GROUPS[kind].one.toUpperCase(), section: '', noNights: false, vac: [] }] })); };
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="overflow-x-auto">
+        <table className="w-full" style={{ borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr className="lbl text-left">
+              <th className="py-2 pr-2" style={{ minWidth: 190 }}>{kind === 'jef' ? 'Jefe' : 'Auxiliar'}</th>
+              <th className="py-2 pr-2" style={{ minWidth: 110 }}>Sección</th>
+              <th className="py-2 pr-2">Sin noches</th>
+              <th className="py-2 pr-2" style={{ minWidth: 330 }}>Vacaciones (inicio – fin)</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {G.staff.map((s) => (
+              <tr key={s.id} style={{ borderTop: '1px solid var(--line)', verticalAlign: 'top' }}>
+                <td className="py-2 pr-2"><input id={'n-' + s.id} className="inp w-full" value={s.name} onChange={(e) => upd(s.id, { name: e.target.value })} aria-label="Nombre" /></td>
+                <td className="py-2 pr-2"><input id={'sec-' + s.id} className="inp w-full" value={s.section} placeholder="—" onChange={(e) => upd(s.id, { section: e.target.value })} aria-label="Sección" /></td>
+                <td className="py-2 pr-2 text-center"><input id={'nn-' + s.id} type="checkbox" checked={s.noNights} onChange={(e) => upd(s.id, { noNights: e.target.checked })} aria-label="Sin noches" /></td>
+                <td className="py-2 pr-2">
+                  <div className="flex flex-col gap-1">
+                    {s.vac.map((v, i) => (
+                      <div key={i} className="flex items-center gap-1 flex-wrap">
+                        <input id={'vf-' + s.id + i} type="date" className="inp" value={v.from} aria-label="Inicio" onChange={(e) => upd(s.id, { vac: s.vac.map((x, j) => (j === i ? { from: e.target.value, to: x.to && x.to >= e.target.value ? x.to : e.target.value ? addDaysStr(e.target.value, 14) : '' } : x)) })} />
+                        <span className="muted">–</span>
+                        <input id={'vt-' + s.id + i} type="date" className="inp" value={v.to} aria-label="Fin" min={v.from} onChange={(e) => upd(s.id, { vac: s.vac.map((x, j) => (j === i ? { ...x, to: e.target.value } : x)) })} />
+                        <span className="chip num">{v.from && v.to ? diffDays(v.from, v.to) + ' d' : '—'}</span>
+                        <button type="button" className="btn" style={{ padding: '4px 8px' }} onClick={() => upd(s.id, { vac: s.vac.filter((_, j) => j !== i) })} aria-label="Quitar periodo">×</button>
+                      </div>
+                    ))}
+                    <div><button type="button" className="btn" style={{ padding: '4px 8px', fontSize: 12 }} onClick={() => upd(s.id, { vac: [...s.vac, { from: '', to: '' }] })}>+ Periodo de vacaciones</button></div>
+                  </div>
+                </td>
+                <td className="py-2 text-right">
+                  <button type="button" className="btn" style={{ padding: '5px 9px', ...(armed === s.id ? { background: 'var(--bad)', borderColor: 'var(--bad)', color: '#fff' } : {}) }}
+                    onClick={() => { if (armed === s.id) { onDelete(s.id); setArmed(null); } else { setArmed(s.id); setTimeout(() => setArmed((a) => (a === s.id ? null : a)), 3000); } }}>
+                    {armed === s.id ? '¿Eliminar?' : 'Eliminar'}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div><button type="button" className="btn btn-primary" onClick={add}>+ Añadir {GROUPS[kind].one}</button></div>
+    </div>
+  );
+}
+
+function App() {
+  const [st, setSt] = useState(loadState);
+  const [menu, setMenu] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState('');
+  const [dl, setDl] = useState(undefined);
+  const idRef = useRef(st.nextId);
+  const flash = (m) => { setToast(m); setTimeout(() => setToast(''), 3800); };
+
+  useEffect(() => { let on = true; (async () => { try { const d = await window.claude?.use?.('downloads'); if (on) setDl(d || null); } catch (e) { if (on) setDl(null); } })(); return () => { on = false; }; }, []);
+  useEffect(() => { const t = setTimeout(() => { try { const { fresh, ...rest } = st; localStorage.setItem(STORE_KEY, JSON.stringify({ ...rest, nextId: idRef.current })); } catch (e) {} }, 400); return () => clearTimeout(t); }, [st]);
+
+  const kind = st.tab;
+  const { year, month, holidays, cells } = st;
+  const G = st.groups[kind];
+  const { staff, cfg } = G;
+  const legend = T.LEGENDS[kind];
+  const updG = useCallback((fn) => setSt((s) => ({ ...s, groups: { ...s.groups, [s.tab]: fn(s.groups[s.tab]) } })), []);
+
+  const days = useMemo(() => T.buildGrid(year, month), [year, month]);
+  const rows = useMemo(() => rowsOf(staff, days, cells), [staff, days, cells]);
+  const val = useMemo(() => T.validate({ staff, days, rows, cfg }), [staff, days, rows, cfg]);
+  const weeks = useMemo(() => T.validate({ staff: [], days, rows: [], cfg }).weeks, [days]);
+
+  const runGenerate = useCallback((base, k, seed) => {
+    const g0 = base.groups[k];
+    const grid = T.buildGrid(base.year, base.month);
+    const g = T.generate({ staff: g0.staff, days: grid, existing: base.cells, cfg: g0.cfg, seed, keepSpecial: true, regen: T.REGEN[k], slots: k === 'jef' });
+    const nc = { ...base.cells };
+    grid.forEach((d, i) => { const o = { ...(nc[d.key] || {}) }; g0.staff.forEach((s, p) => { if (g.rows[p][i]) o[s.id] = g.rows[p][i]; }); nc[d.key] = o; });
+    const mk = mkey(base.year, base.month);
+    return { ...base, cells: nc, groups: { ...base.groups, [k]: { ...g0, months: g0.months.includes(mk) ? g0.months : [...g0.months, mk].sort() } }, fresh: false };
+  }, []);
+
+  const generate = () => {
+    setBusy(true);
+    setTimeout(() => { setSt((s) => runGenerate(s, s.tab, (Date.now() % 100000) + 1)); setBusy(false); flash('Cuadrante de ' + GROUPS[kind].label.toLowerCase() + ' generado: ' + T.MONTHS[month] + ' ' + year); }, 30);
+  };
+  useEffect(() => { if (st.fresh) { setBusy(true); setTimeout(() => { setSt((s) => runGenerate(runGenerate(s, 'aux', 11), 'jef', 11)); setBusy(false); }, 60); } }, []);
+
+  const clearMonth = () => setSt((s) => {
+    const nc = { ...s.cells }; const ids = new Set(s.groups[s.tab].staff.map((x) => x.id));
+    T.buildGrid(s.year, s.month).forEach((d) => { if (d.inMonth && nc[d.key]) { const o = { ...nc[d.key] }; ids.forEach((id) => delete o[id]); nc[d.key] = o; } });
+    const g = s.groups[s.tab];
+    return { ...s, cells: nc, groups: { ...s.groups, [s.tab]: { ...g, months: g.months.filter((m) => m !== mkey(s.year, s.month)) } } };
+  });
+
+  const openMenu = useCallback((el, k, id) => {
+    const r = el.getBoundingClientRect();
+    const s = staff.find((x) => x.id === id);
+    setMenu({ x: r.left, y: r.bottom + 4, k, id, name: (s ? s.name : '') + ' · ' + k.slice(8) + '/' + k.slice(5, 7) });
+  }, [staff]);
+  const pick = (c) => {
+    setSt((s) => {
+      const o = { ...(s.cells[menu.k] || {}) }; if (c) o[menu.id] = c; else delete o[menu.id];
+      const mk = mkey(s.year, s.month); const g = s.groups[s.tab];
+      return { ...s, cells: { ...s.cells, [menu.k]: o }, groups: { ...s.groups, [s.tab]: { ...g, months: g.months.includes(mk) ? g.months : [...g.months, mk].sort() } } };
+    });
+    setMenu(null);
+  };
+  const toggleHol = (k) => setSt((s) => { const h = { ...s.holidays }; if (h[k]) delete h[k]; else h[k] = true; return { ...s, holidays: h }; });
+  const deleteStaff = (id) => updG((g) => ({ ...g, staff: g.staff.filter((x) => x.id !== id) }));
+  const setCfg = (k, v) => updG((g) => ({ ...g, cfg: { ...g.cfg, [k]: Math.max(0, parseInt(v || 0, 10) || 0) } }));
+  const setTab = (t) => { setMenu(null); setSt((s) => ({ ...s, tab: t })); };
+
+  const payload = (k, y, m) => {
+    const g0 = st.groups[k], grid = T.buildGrid(y, m);
+    return { kind: k, year: y, month: m, staff: g0.staff, days: grid, rows: rowsOf(g0.staff, grid, cells), holidays, cfg: g0.cfg, coordinator: g0.coordinator, footnote: g0.footnote };
+  };
+  const exportXlsx = async (all) => {
+    try {
+      let list = [];
+      if (all) {
+        const keys = [...new Set(ORDER.flatMap((k) => st.groups[k].months))].sort();
+        keys.forEach((mk) => ORDER.forEach((k) => { if (st.groups[k].months.includes(mk)) list.push(payload(k, parseInt(mk.slice(0, 4), 10), parseInt(mk.slice(5), 10) - 1)); }));
+      } else list = ORDER.map((k) => payload(k, year, month));
+      if (!list.length) { flash('Todavía no hay meses generados'); return; }
+      const wb = T.buildWorkbook(ExcelJS, list);
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const name = all ? 'TURNOS_ENFERMERIA.xlsx' : 'TURNOS_ENFERMERIA_' + T.MONTHS[month] + '_' + year + '.xlsx';
+      if (!dl) { flash('La descarga no está disponible en esta vista. Abre la página desde Claude.'); return; }
+      await dl.save({ filename: name, data: blob });
+      flash('Excel guardado: ' + name);
+    } catch (e) { if (!e || e.code !== 'declined') flash('No se pudo exportar: ' + ((e && e.message) || e)); }
+  };
+
+  const cols = [];
+  days.forEach((d, i) => { cols.push({ t: 'd', i }); if (i % 7 === 6) cols.push({ t: 'w', w: d.week }); });
+  const issuesCount = val.people.filter((p) => p.issues.length).length;
+  const dayLbl = (i) => T.DOWL[days[i].dow] + ' ' + days[i].dom;
+  const gapList = val.coverage.map((c, i) => ({ c, i })).filter((x) => !x.c.ok);
+  const allMonths = [...new Set(ORDER.flatMap((k) => st.groups[k].months))];
+  const who = GROUPS[kind].label;
+  let lastSec = null;
+  const legendDots = kind === 'jef' ? [['M1', 'Mañana asist.'], ['M2', 'Mañana medic.'], ['T1', 'Tarde 1'], ['T2', 'Tarde 2'], ['N1', 'Noche 1'], ['N2', 'Noche 2'], ['L', 'Libre'], ['V', 'Vacaciones']] : [['M', 'Mañana'], ['T', 'Tarde'], ['N', 'Noche'], ['L', 'Libre'], ['V', 'Vacaciones'], ['MB', 'Otro código']];
+
+  return (
+    <div className="mx-auto flex flex-col gap-4" style={{ maxWidth: 1500 }}>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <div className="lbl">Fundación Hospital San Pedro · UCN</div>
+          <h1 style={{ font: '700 26px var(--font)', letterSpacing: '-0.01em' }}>Cuadrantes de enfermería</h1>
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-1"><span className="lbl">Mes</span>
+            <select id="mes" className="inp" value={month} onChange={(e) => setSt((s) => ({ ...s, month: parseInt(e.target.value, 10) }))}>{T.MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}</select></label>
+          <label className="flex flex-col gap-1"><span className="lbl">Año</span>
+            <input id="anio" className="inp num" style={{ width: 84 }} type="number" min="2024" max="2100" value={year} onChange={(e) => setSt((s) => ({ ...s, year: parseInt(e.target.value, 10) || s.year }))} /></label>
+          <button type="button" className="btn btn-primary" onClick={generate} disabled={busy}>{busy ? 'Generando…' : 'Generar ' + who.toLowerCase()}</button>
+          <button type="button" className="btn" onClick={clearMonth}>Limpiar mes</button>
+          <button type="button" className="btn" onClick={() => exportXlsx(false)} disabled={dl === null} title="Una hoja de jefes y una de auxiliares">Exportar Excel del mes</button>
+          <button type="button" className="btn" onClick={() => exportXlsx(true)} disabled={dl === null || !allMonths.length} title="Una hoja por grupo y por cada mes generado">Excel de todos los meses ({allMonths.length})</button>
+        </div>
+      </header>
+
+      <div role="tablist" className="flex gap-1" style={{ borderBottom: '1px solid var(--line)' }}>
+        {ORDER.map((k) => (
+          <button key={k} type="button" role="tab" aria-selected={kind === k} onClick={() => setTab(k)}
+            style={{ font: '700 14px var(--font)', padding: '9px 16px', border: '1px solid ' + (kind === k ? 'var(--line)' : 'transparent'), borderBottom: kind === k ? '2px solid var(--panel)' : '1px solid transparent', marginBottom: -1, borderRadius: '6px 6px 0 0', background: kind === k ? 'var(--panel)' : 'transparent', color: kind === k ? 'var(--accent)' : 'var(--muted)', cursor: 'pointer' }}>
+            {GROUPS[k].label} <span className="num" style={{ fontWeight: 500, opacity: .75 }}>· {st.groups[k].staff.length}</span>
+          </button>
+        ))}
+      </div>
+
+      <section className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))' }}>
+        <div className="card p-3"><div className="lbl">Cobertura del mes</div>
+          <div className="num" style={{ font: '700 24px var(--mono)', color: gapList.length ? 'var(--bad)' : 'var(--ok)' }}>{days.length - gapList.length}/{days.length}</div>
+          <div className="muted" style={{ fontSize: 12 }}>{gapList.length ? gapList.length + ' días con faltantes' : 'días completos'}</div></div>
+        <div className="card p-3"><div className="lbl">{who} con aviso</div>
+          <div className="num" style={{ font: '700 24px var(--mono)', color: issuesCount ? 'var(--warn)' : 'var(--ok)' }}>{issuesCount}/{staff.length}</div>
+          <div className="muted" style={{ fontSize: 12 }}>fines de semana, noches, rachas</div></div>
+        <div className="card p-3"><div className="lbl">Mínimo diario</div>
+          <div className="num" style={{ font: '700 20px var(--mono)' }}>{cfg.M}M · {cfg.T}T · {cfg.N}N</div>
+          <div className="muted" style={{ fontSize: 12 }}>jueves {cfg.TThu}T</div></div>
+        <div className="card p-3"><div className="lbl">Meta semanal</div>
+          <div className="num" style={{ font: '700 24px var(--mono)' }}>{cfg.weeklyHours} h</div>
+          <div className="muted" style={{ fontSize: 12 }}>por persona (noche = 12 h)</div></div>
+      </section>
+
+      <section>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <h2 style={{ font: '700 17px var(--font)' }}>{who} · {T.MONTHS[month]} {year}</h2>
+          <div className="flex flex-wrap items-center gap-2 muted" style={{ fontSize: 12 }}>
+            {legendDots.map(([c, n]) => <span key={c} className="flex items-center gap-1"><span className={'legend-dot ' + codeClass(c)}>{c}</span>{n}</span>)}
+            <span>· Toca una casilla para cambiarla · Toca el día para marcar festivo</span>
+          </div>
+        </div>
+        <div className="grid-wrap">
+          <table className="mx">
+            <thead>
+              <tr>
+                <th className="nm" rowSpan={2}>{kind === 'jef' ? 'Jefe' : 'Auxiliar'}</th>
+                {cols.map((c, j) => c.t === 'd'
+                  ? <th key={j} className={'dh ' + (days[c.i].dow === 0 ? 'sun ' : '') + (holidays[days[c.i].key] ? 'fest ' : '') + (!days[c.i].inMonth ? 'out' : '')} onClick={() => toggleHol(days[c.i].key)} title={T.DOWN[days[c.i].dow] + ' ' + days[c.i].dom + (holidays[days[c.i].key] ? ' · festivo' : '')}>{T.DOWL[days[c.i].dow]}</th>
+                  : <th key={j} className="wk" rowSpan={2}>HRS</th>)}
+              </tr>
+              <tr>
+                {cols.filter((c) => c.t === 'd').map((c) => <th key={c.i} className={'dh num ' + (days[c.i].dow === 0 ? 'sun ' : '') + (holidays[days[c.i].key] ? 'fest num ' : '') + (!days[c.i].inMonth ? 'out' : '')} onClick={() => toggleHol(days[c.i].key)}>{days[c.i].dom}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {staff.map((s, p) => {
+                const secRow = s.section && s.section !== lastSec ? <tr key={'sec' + s.id} className="sec"><td colSpan={cols.length + 1}>{s.section.toUpperCase()}</td></tr> : null;
+                lastSec = s.section;
+                return (
+                  <React.Fragment key={s.id}>
+                    {secRow}
+                    <tr>
+                      <td className="nm" title={s.name}>{s.name}</td>
+                      {cols.map((c, j) => {
+                        if (c.t === 'd') {
+                          const d = days[c.i];
+                          return <Cell key={j} k={d.key} id={s.id} v={rows[p][c.i]} locked={T.inVac(s, d.key)} onOpen={openMenu} legend={legend} />;
+                        }
+                        const h = val.people[p].weekHours[c.w];
+                        return <td key={j} className={'wk ' + (h > cfg.weeklyHours ? 'hi' : h === 0 ? 'zero' : h < cfg.weeklyHours ? 'lo' : '')}>{h}</td>;
+                      })}
+                    </tr>
+                  </React.Fragment>
+                );
+              })}
+              {['M', 'T', 'N'].map((k, r) => (
+                <tr key={k} className="sumrow">
+                  <td className="nm" style={{ background: 'var(--panel2)' }}>{r === 0 ? 'Cobertura diaria · ' : ''}{k === 'M' ? 'Mañana' : k === 'T' ? 'Tarde' : 'Noche'}</td>
+                  {cols.map((c, j) => {
+                    if (c.t === 'd') {
+                      const cv = val.coverage[c.i], n = cv[k], need = cv.req[k];
+                      return <td key={j} className={n >= need ? 'ok' : 'bad'} title={dayLbl(c.i) + ': ' + n + ' de ' + need}>{n}<span style={{ opacity: .55, fontSize: 10 }}>/{need}</span></td>;
+                    }
+                    return <td key={j} />;
+                  })}
+                </tr>
+              ))}
+              <tr className="sumrow">
+                <td className="nm" style={{ background: 'var(--panel2)' }}>Horas del día</td>
+                {cols.map((c, j) => {
+                  if (c.t === 'd') { const cv = val.coverage[c.i]; return <td key={j} className={cv.hours >= cv.hoursReq ? 'ok' : 'bad'} title={cv.hours + ' h de ' + cv.hoursReq + ' h'}>{cv.hours}</td>; }
+                  let tot = 0; for (let k = 0; k < 7; k++) tot += val.coverage[c.w * 7 + k].hours; return <td key={j} className="wk">{tot}</td>;
+                })}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,420px),1fr))' }}>
+        <div className="card p-4 min-w-0">
+          <h2 style={{ font: '700 15px var(--font)' }}>Validación de cobertura</h2>
+          {gapList.length === 0
+            ? <p className="mt-2" style={{ color: 'var(--ok)', fontWeight: 600 }}>Todos los días cumplen el mínimo de {cfg.M} M, {cfg.T} T ({cfg.TThu} los jueves) y {cfg.N} N.</p>
+            : <div className="mt-2 flex flex-wrap gap-2">{gapList.map(({ c, i }) => <span key={i} className="chip bad">{dayLbl(i)} · {['M', 'T', 'N'].filter((k) => c[k] < c.req[k]).map((k) => k + ' ' + c[k] + '/' + c.req[k]).join(' · ')}</span>)}</div>}
+          <h3 className="lbl mt-4 mb-2">Reglas por persona</h3>
+          {issuesCount === 0
+            ? <p style={{ color: 'var(--ok)', fontWeight: 600 }}>Todos tienen sábado y domingo libre, descanso después de cada trasnocho y menos de 7 días seguidos.</p>
+            : <ul className="flex flex-col gap-1" style={{ fontSize: 13 }}>{val.people.filter((p) => p.issues.length).map((p) => <li key={p.name}><b>{p.name}</b> <span className="muted">· {p.issues.join(' · ')}</span></li>)}</ul>}
+          <p className="muted mt-3" style={{ fontSize: 12 }}>El sábado o domingo cuenta como libre si no es el día de recuperación posterior a un trasnocho. Las vacaciones cuentan como libres.</p>
+        </div>
+
+        <div className="card p-4 min-w-0">
+          <h2 style={{ font: '700 15px var(--font)' }}>Parámetros de {who.toLowerCase()}</h2>
+          <div className="grid gap-3 mt-3" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(110px,1fr))' }}>
+            {[['M', 'Mañana'], ['T', 'Tarde (vie–mié)'], ['TThu', 'Tarde jueves'], ['N', 'Noche'], ['weeklyHours', 'Horas/semana']].map(([k, l]) => (
+              <label key={k} className="flex flex-col gap-1"><span className="lbl">{l}</span><input id={'cfg-' + kind + k} className="inp num" type="number" min="0" value={cfg[k]} onChange={(e) => setCfg(k, e.target.value)} /></label>
+            ))}
+          </div>
+          <h3 className="lbl mt-4 mb-2">Responsable (pie del Excel)</h3>
+          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))' }}>
+            <input id={'resp-n' + kind} className="inp" placeholder="Nombre" value={G.coordinator.name} onChange={(e) => updG((g) => ({ ...g, coordinator: { ...g.coordinator, name: e.target.value } }))} />
+            <input id={'resp-r' + kind} className="inp" placeholder="Cargo" value={G.coordinator.role} onChange={(e) => updG((g) => ({ ...g, coordinator: { ...g.coordinator, role: e.target.value } }))} />
+          </div>
+          <h3 className="lbl mt-4 mb-2">Notas al pie del Excel</h3>
+          <textarea id={'foot' + kind} className="inp w-full" rows={kind === 'jef' ? 5 : 2} value={G.footnote} placeholder="Una nota por línea" onChange={(e) => updG((g) => ({ ...g, footnote: e.target.value }))} />
+          <h3 className="lbl mt-4 mb-2">Festivos del mes (todos los grupos)</h3>
+          <div className="flex flex-wrap gap-2 items-center">
+            {days.filter((d) => d.inMonth && holidays[d.key]).map((d) => <button key={d.key} type="button" className="chip" onClick={() => toggleHol(d.key)} title="Quitar festivo">{T.DOWN[d.dow].slice(0, 3)} {d.dom} ×</button>)}
+            {!days.some((d) => d.inMonth && holidays[d.key]) && <span className="muted" style={{ fontSize: 13 }}>Sin festivos. Toca un día en la matriz para marcarlo.</span>}
+          </div>
+          <button type="button" className="btn mt-3" style={{ fontSize: 12 }} onClick={() => setSt((s) => ({ ...s, holidays: { ...s.holidays, ...toHol(FEST_2026) } }))}>Cargar festivos de Colombia 2026</button>
+        </div>
+      </section>
+
+      <details className="card" open>
+        <summary className="p-4 flex items-center justify-between gap-2">
+          <span style={{ font: '700 15px var(--font)' }}>Personal y vacaciones · {who} <span className="muted" style={{ fontWeight: 500 }}>· {staff.length} personas</span></span>
+          <span className="muted" style={{ fontSize: 12 }}>Mostrar / ocultar</span>
+        </summary>
+        <div className="p-4 pt-0"><StaffPanel G={G} kind={kind} updG={updG} onDelete={deleteStaff} nextId={() => ++idRef.current} />
+          <p className="muted mt-3" style={{ fontSize: 12 }}>Después de cambiar personal o vacaciones, pulsa “Generar”. Las casillas que editaste a mano con códigos especiales (IC, LIC, MAD…) se respetan al regenerar.</p></div>
+      </details>
+
+      {menu && <CodeMenu menu={menu} legend={legend} main={MAIN[kind]} onPick={pick} onClose={() => setMenu(null)} />}
+      {toast && <div className="toast" role="status">{toast}</div>}
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+</body></html>
