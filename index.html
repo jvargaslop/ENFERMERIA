@@ -109,17 +109,18 @@ details>summary::-webkit-details-marker{display:none}
     ['TAD', 6, 'TARDE ADMINISTRATIVO'], ['T2', 6, 'TARDE MEDICAMENTO'], ['V', 0, 'VACACIONES'], ['BRI', 6, 'BRIGADA'], ['MAD', 6, 'MAÑANA ADMINISTRATIVO'],
   ];
   const LEGENDS = { aux: LEGEND, jef: LEGEND_JEF };
-  const REGEN = { aux: ['M', 'T', 'N', 'L', 'V'], jef: ['M', 'T', 'N', 'L', 'V', 'M1', 'M2', 'T1', 'T2', 'N1', 'N2'] };
+  const REGEN = { aux: ['M', 'T', 'N', 'L', 'V', 'MLA', 'TLA'], jef: ['M', 'T', 'N', 'L', 'V', 'M1', 'M2', 'T1', 'T2', 'N1', 'N2', 'MAD'] };
   const HOURS = {};
   LEGEND.concat(LEGEND_JEF).forEach(([c, h]) => (HOURS[c] = h));
 
-  const DEFAULT_CFG = { M: 7, T: 6, TThu: 7, N: 5, weeklyHours: 36 };
+  const DEFAULT_CFG = { M: 7, T: 6, TThu: 7, N: 5, weeklyHours: 36, extraM: 0, extraMDays: [], weekendMode: 'alt' };
   const PATTERN = [1, 2, 2, 1]; // trasnochos por semana: S1, S2, S3, S4
 
   const DAY = 864e5;
   const keyOf = (t) => new Date(t).toISOString().slice(0, 10);
   const fam = (c) => { const x = c ? c.charAt(0) : ''; return x === 'M' || x === 'T' || x === 'N' ? x : null; };
   const hoursOf = (c) => (c && HOURS[c]) || 0;
+  const famCov = (c) => (c === 'MLA' || c === 'TLA' ? null : fam(c)); // lactario no cuenta para el mínimo
 
   function mulberry32(a) {
     return function () {
@@ -144,7 +145,7 @@ details>summary::-webkit-details-marker{display:none}
     return days;
   }
 
-  const reqFor = (cfg, dow) => ({ M: cfg.M, T: dow === 4 ? cfg.TThu : cfg.T, N: cfg.N });
+  const reqFor = (cfg, dow) => ({ M: cfg.M + ((cfg.extraMDays || []).includes(dow) ? cfg.extraM || 0 : 0), T: dow === 4 ? cfg.TThu : cfg.T, N: cfg.N });
   const dayHoursReq = (cfg, dow) => { const r = reqFor(cfg, dow); return (r.M + r.T) * 6 + r.N * 12; };
   const inVac = (s, key) => (s.vac || []).some((v) => v.from && v.to && key >= v.from && key <= v.to);
 
@@ -154,24 +155,60 @@ details>summary::-webkit-details-marker{display:none}
     return w;
   }
 
+  /** Festivos de Colombia (Ley Emiliani + Semana Santa) para un año: { 'YYYY-MM-DD': nombre } */
+  function colombiaHolidays(y) {
+    const out = {};
+    const put = (t, n) => { out[keyOf(t)] = n; };
+    const nextMon = (t) => { const dw = new Date(t).getUTCDay(); return t + ((8 - dw) % 7) * DAY; };
+    const U = (m, d) => Date.UTC(y, m - 1, d);
+    // Pascua (algoritmo de Meeus/Jones/Butcher)
+    const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const mo = Math.floor((h + l - 7 * m + 114) / 31), da = ((h + l - 7 * m + 114) % 31) + 1;
+    const easter = Date.UTC(y, mo - 1, da);
+    put(U(1, 1), 'Año Nuevo'); put(U(5, 1), 'Día del Trabajo'); put(U(7, 20), 'Día de la Independencia'); put(U(8, 7), 'Batalla de Boyacá');
+    put(U(12, 8), 'Inmaculada Concepción'); put(U(12, 25), 'Navidad');
+    put(nextMon(U(1, 6)), 'Reyes Magos'); put(nextMon(U(3, 19)), 'San José'); put(nextMon(U(6, 29)), 'San Pedro y San Pablo');
+    put(nextMon(U(8, 15)), 'Asunción de la Virgen'); put(nextMon(U(10, 12)), 'Día de la Raza'); put(nextMon(U(11, 1)), 'Todos los Santos'); put(nextMon(U(11, 11)), 'Independencia de Cartagena');
+    put(easter - 3 * DAY, 'Jueves Santo'); put(easter - 2 * DAY, 'Viernes Santo');
+    put(nextMon(easter + 39 * DAY), 'Ascensión del Señor'); put(nextMon(easter + 60 * DAY), 'Corpus Christi'); put(nextMon(easter + 68 * DAY), 'Sagrado Corazón');
+    return out;
+  }
+
+  const ymOf = (days) => { const d = days.find((x) => x.inMonth) || days[0]; return +d.key.slice(0, 4) * 12 + (+d.key.slice(5, 7) - 1); };
+  // Qué fin de semana libre necesita cada persona este mes: 'both' | 'sat' | 'sun' | 'any'
+  function weekendNeed(s, p, cfg, ym) {
+    if (s.fixedWeek && Object.keys(s.fixedWeek).length) return 'any';
+    if (cfg.weekendMode === 'both') return 'both';
+    return (ym + p) % 2 === 0 ? 'sat' : 'sun';
+  }
+  const needOk = (need, sat, sun) => (need === 'both' ? sat && sun : need === 'sat' ? sat : need === 'sun' ? sun : sat || sun);
+  const needMsg = (need, sat, sun) => (need === 'both' ? [!sat && 'Sin sábado libre', !sun && 'Sin domingo libre'].filter(Boolean) : need === 'sat' ? (sat ? [] : ['Sin sábado libre este mes']) : need === 'sun' ? (sun ? [] : ['Sin domingo libre este mes']) : sat || sun ? [] : ['Sin sábado ni domingo libre']);
+  const targetOf = (s, cfg) => (s.weeklyHours != null && s.weeklyHours !== '' ? +s.weeklyHours : cfg.weeklyHours);
+
   /**
    * Genera el cuadrante. Devuelve { rows } con rows[p][d] = sigla.
    * existing: { 'YYYY-MM-DD': { staffId: sigla } } (datos ya guardados de otros meses / ediciones especiales)
    */
-  function generate({ staff, days, existing = {}, cfg = DEFAULT_CFG, seed = 1, keepSpecial = true, iterations = 120000, regen = REGEN.aux, slots = false }) {
-    const P = staff.length, D = days.length, rnd = mulberry32(seed);
+  function generate({ staff, days, existing = {}, cfg = DEFAULT_CFG, seed = 1, keepSpecial = true, iterations = 220000, regen = REGEN.aux, slots = false, holidays = {} }) {
+    const P = staff.length, D = days.length, rnd = mulberry32(seed), ym = ymOf(days);
     const code = [], lock = [];
+    const extra = days.map((d) => (cfg.extraMDays || []).includes(d.dow) && (cfg.extraM || 0) > 0);
     for (let p = 0; p < P; p++) {
-      const row = [], lk = [];
+      const row = [], lk = [], s = staff[p];
+      const fixed = s.fixedWeek && Object.keys(s.fixedWeek).length ? s.fixedWeek : null;
       for (let d = 0; d < D; d++) {
         const day = days[d]; let c = null, l = false;
-        if (inVac(staff[p], day.key)) { c = 'V'; l = true; }
+        if (inVac(s, day.key)) { c = 'V'; l = true; }
         else {
-          const st = existing[day.key] && existing[day.key][staff[p].id];
+          const st = existing[day.key] && existing[day.key][s.id];
           if (st) {
             const special = !regen.includes(st);
             if (!day.inMonth) { c = st; l = true; }
             else if (special && keepSpecial) { c = st; l = true; }
+          }
+          if (!l && (fixed || (s.noHolidays && holidays[day.key])) ) {
+            c = holidays[day.key] && (s.noHolidays || fixed) ? 'L' : (fixed && fixed[day.dow]) || 'L'; l = true;
           }
         }
         row.push(c); lk.push(l);
@@ -179,8 +216,28 @@ details>summary::-webkit-details-marker{display:none}
       code.push(row); lock.push(lk);
     }
     const weeks = weekRanges(days);
-    let ph = 0; const phase = staff.map((s) => (s.noNights ? 0 : ph++));
-    const nTarget = (p, w) => (staff[p].noNights ? 0 : PATTERN[(w + phase[p]) % 4]);
+    // Lactario: una mañana y una tarde cada día, un libre por semana
+    const lac = []; staff.forEach((s, p) => { if (s.lactario) lac.push(p); });
+    lac.forEach((p, i) => {
+      const need = weekendNeed(staff[p], p, cfg, ym);
+      const freeDays = new Set();
+      weeks.forEach(([a0, b0], wi) => {
+        const dow = need === 'sat' ? 6 : need === 'both' ? (wi % 2 === 0 ? 0 : 6) : 0;
+        for (let d = a0; d <= b0; d++) if (days[d].dow === dow) freeDays.add(d);
+      });
+      for (let d = 0; d < D; d++) {
+        if (code[p][d] === null) {
+          const dn = Math.round(Date.parse(days[d].key) / DAY);
+          code[p][d] = freeDays.has(d) ? 'L' : ((dn + i) % 2 === 0 ? 'MLA' : 'TLA');
+        }
+        lock[p][d] = true;
+      }
+    });
+    let ph = 0; const phase = staff.map((s) => (s.noNights || s.lactario ? 0 : ph++));
+    const nTarget = (p, w) => (staff[p].noNights || staff[p].lactario ? 0 : PATTERN[(w + phase[p]) % 4]);
+    const tgtOf = staff.map((s) => targetOf(s, cfg));
+    const need = staff.map((s, p) => weekendNeed(s, p, cfg, ym));
+    const elig = staff.map((s) => !!s.extraM);
 
     // ---------- Construcción inicial, día a día ----------
     const weekH = new Array(P).fill(0), weekN = new Array(P).fill(0), consec = new Array(P).fill(0);
@@ -194,18 +251,26 @@ details>summary::-webkit-details-marker{display:none}
         if (code[p][d] === null) {
           if (d > 0 && fam(code[p][d - 1]) === 'N') code[p][d] = 'L'; // recuperación post-noche
           else cand.push(p);
-        } else if (fam(code[p][d])) cov[fam(code[p][d])]++;
+        } else if (famCov(code[p][d])) cov[famCov(code[p][d])]++;
       }
       const needN = Math.max(0, req.N - cov.N);
-      const nCand = cand.filter((p) => !staff[p].noNights)
+      const nCand = cand.filter((p) => !staff[p].noNights && !staff[p].lactario)
         .map((p) => [p, -(nTarget(p, w) - weekN[p]) * 10 + weekH[p] * 0.3 + consec[p] * 2 + rnd() * 3])
         .sort((a, b) => a[1] - b[1]);
       const chosenN = new Set(nCand.slice(0, needN).map((x) => x[0]));
       chosenN.forEach((p) => (code[p][d] = 'N'));
-      const rest = cand.filter((p) => !chosenN.has(p))
-        .map((p) => [p, weekH[p] + 4 * consec[p] + (weekH[p] >= cfg.weeklyHours ? 20 : 0) + rnd() * 4])
+      let needM = Math.max(0, req.M - cov.M); const needT = Math.max(0, req.T - cov.T);
+      // día con jefe extra de mañana: debe haber uno habilitado
+      if (extra[d] && needM > 0) {
+        let has = false; for (let p = 0; p < P; p++) if (elig[p] && fam(code[p][d]) === 'M') has = true;
+        if (!has) {
+          const e = cand.filter((p) => elig[p] && !chosenN.has(p)).map((p) => [p, weekH[p] + 4 * consec[p] + rnd() * 4]).sort((a, b) => a[1] - b[1])[0];
+          if (e) { code[e[0]][d] = 'M'; needM--; }
+        }
+      }
+      const rest = cand.filter((p) => !chosenN.has(p) && code[p][d] === null)
+        .map((p) => [p, weekH[p] - tgtOf[p] * (days[d].dow / 7) + 4 * consec[p] + (weekH[p] >= tgtOf[p] ? 20 : 0) + rnd() * 4])
         .sort((a, b) => a[1] - b[1]);
-      const needM = Math.max(0, req.M - cov.M), needT = Math.max(0, req.T - cov.T);
       const picked = rest.slice(0, needM + needT).map((x) => x[0]);
       const ordered = picked.map((p) => [p, mC[p] - tC[p] + (d > 0 && fam(code[p][d - 1]) === 'T' ? 3 : 0) + rnd()]).sort((a, b) => a[1] - b[1]).map((x) => x[0]);
       ordered.forEach((p, i) => (code[p][d] = i < needM ? 'M' : 'T'));
@@ -229,12 +294,12 @@ details>summary::-webkit-details-marker{display:none}
           if (fam(x) === 'N') n++;
           if (lock[p][d] && !fam(x) && x !== 'L') la++;
         }
-        const tgt = (cfg.weeklyHours * (7 - la)) / 7;
-        { const dv = Math.abs(h - tgt); c += 4 * dv + 0.4 * dv * dv; }
+        const tgt = (tgtOf[p] * (7 - la)) / 7;
+        { const dv = Math.abs(h - tgt); c += 6 * dv + 0.5 * dv * dv; }
         c += 5 * Math.abs(n - nTarget(p, wi));
         if (n > 2) c += 30 * (n - 2);
       });
-      let run = 0, sat = false, sun = false, hasSat = false, hasSun = false, m = 0, t = 0;
+      let run = 0, sat = false, sun = false, m = 0, t = 0;
       for (let d = 0; d < D; d++) {
         const f = fam(row[d]);
         run = f ? run + 1 : 0;
@@ -247,14 +312,14 @@ details>summary::-webkit-details-marker{display:none}
         if (days[d].inMonth) {
           if (f === 'M') m++; if (f === 'T') t++;
           const free = !f && !(d > 0 && fam(row[d - 1]) === 'N');
-          if (days[d].dow === 6) { hasSat = true; if (free) sat = true; }
-          if (days[d].dow === 0) { hasSun = true; if (free) sun = true; }
+          if (days[d].dow === 6 && free) sat = true;
+          if (days[d].dow === 0 && free) sun = true;
         }
       }
-      if (hasSat && !sat) c += 300;
-      if (hasSun && !sun) c += 300;
+      if (!needOk(need[p], sat, sun)) c += 300 * (need[p] === 'both' ? (sat ? 0 : 1) + (sun ? 0 : 1) : 1);
       return c + 1.5 * Math.abs(m - t);
     }
+    const extraOk = (d) => { if (!extra[d]) return true; for (let p = 0; p < P; p++) if (elig[p] && fam(code[p][d]) === 'M') return true; return false; };
     const costs = []; for (let p = 0; p < P; p++) costs.push(pc(p));
     if (P > 1) {
       const T0 = 25, T1 = 0.4;
@@ -267,18 +332,24 @@ details>summary::-webkit-details-marker{display:none}
         for (let k = d0; k < d0 + len; k++) {
           if (lock[a][k] || lock[b][k]) { ok = false; break; }
           if (code[a][k] !== code[b][k]) diff = true;
-          if (staff[a].noNights && fam(code[b][k]) === 'N') ok = false;
-          if (staff[b].noNights && fam(code[a][k]) === 'N') ok = false;
+          if ((staff[a].noNights || staff[a].lactario) && fam(code[b][k]) === 'N') ok = false;
+          if ((staff[b].noNights || staff[b].lactario) && fam(code[a][k]) === 'N') ok = false;
         }
         if (!ok || !diff) continue;
+        const before = []; for (let k = d0; k < d0 + len; k++) before.push(extraOk(k));
         for (let k = d0; k < d0 + len; k++) { const x = code[a][k]; code[a][k] = code[b][k]; code[b][k] = x; }
-        const ca = pc(a), cb = pc(b), delta = ca + cb - costs[a] - costs[b];
-        if (delta <= 0 || rnd() < Math.exp(-delta / Tm)) { costs[a] = ca; costs[b] = cb; }
+        let bad = false; for (let k = d0; k < d0 + len; k++) if (before[k - d0] && !extraOk(k)) bad = true;
+        let accept = false, ca = 0, cb = 0;
+        if (!bad) {
+          ca = pc(a); cb = pc(b); const delta = ca + cb - costs[a] - costs[b];
+          accept = delta <= 0 || rnd() < Math.exp(-delta / Tm);
+        }
+        if (accept) { costs[a] = ca; costs[b] = cb; }
         else for (let k = d0; k < d0 + len; k++) { const x = code[a][k]; code[a][k] = code[b][k]; code[b][k] = x; }
       }
     }
     if (slots) {
-      const c1 = staff.map(() => ({ M: 0, T: 0, N: 0 })), c2 = staff.map(() => ({ M: 0, T: 0, N: 0 }));
+      const c1 = staff.map(() => ({ M: 0, T: 0, N: 0 })), c2 = staff.map(() => ({ M: 0, T: 0, N: 0 })), cMAD = staff.map(() => 0);
       for (let d = 0; d < D; d++) {
         ['M', 'T', 'N'].forEach((F) => {
           const bare = [], taken = new Set(); let total = 0;
@@ -286,11 +357,21 @@ details>summary::-webkit-details-marker{display:none}
             const x = code[p][d];
             if (x === F) { bare.push(p); total++; }
             else if (x && x.charAt(0) === F && /^[A-Z]\d$/.test(x)) { taken.add(+x.charAt(1)); total++; }
+            else if (F === 'M' && x === 'MAD') total++;
           }
           const nSlots = Math.max(total, reqFor(cfg, days[d].dow)[F]);
+          let pool = bare.slice();
+          if (F === 'M' && extra[d] && nSlots >= 3) {
+            const hasMAD = code.some((r) => r[d] === 'MAD');
+            if (!hasMAD) {
+              const e = pool.filter((p) => elig[p]).sort((x, y) => cMAD[x] - cMAD[y])[0];
+              if (e !== undefined) { code[e][d] = 'MAD'; cMAD[e]++; pool = pool.filter((p) => p !== e); total = total; }
+            }
+          }
           const avail = []; for (let k = 1; k <= nSlots; k++) if (!taken.has(k)) avail.push(k);
-          bare.map((p) => [p, c1[p][F] - c2[p][F] + rnd() * 0.5]).sort((a, b) => a[1] - b[1]).forEach(([p], i) => {
-            const k = avail[i] || 2; code[p][d] = F + k; if (k === 1) c1[p][F]++; else c2[p][F]++;
+          const slotsLeft = avail.slice(0, Math.max(pool.length, 0));
+          pool.map((p) => [p, c1[p][F] - c2[p][F] + rnd() * 0.5]).sort((a, b) => a[1] - b[1]).forEach(([p], i) => {
+            const k = slotsLeft[i] || 2; code[p][d] = F + k; if (k === 1) c1[p][F]++; else c2[p][F]++;
           });
         });
       }
@@ -298,35 +379,35 @@ details>summary::-webkit-details-marker{display:none}
     return { rows: code, lock };
   }
 
-  /** Validación de cobertura y de reglas por auxiliar. */
+  /** Validación de cobertura y de reglas por persona. */
   function validate({ staff, days, rows, cfg = DEFAULT_CFG }) {
-    const weeks = weekRanges(days);
+    const weeks = weekRanges(days), ym = ymOf(days);
     const coverage = days.map((d, i) => {
       const c = { M: 0, T: 0, N: 0 };
-      rows.forEach((r) => { const f = fam(r[i]); if (f) c[f]++; });
+      rows.forEach((r) => { const f = famCov(r[i]); if (f) c[f]++; });
       const req = reqFor(cfg, d.dow);
-      return { ...c, req, ok: c.M >= req.M && c.T >= req.T && c.N >= req.N, hours: rows.reduce((s, r) => s + hoursOf(r[i]), 0), hoursReq: dayHoursReq(cfg, d.dow) };
+      const hours = rows.reduce((s, r, p) => s + (staff[p] && staff[p].lactario ? 0 : hoursOf(r[i])), 0);
+      return { ...c, req, ok: c.M >= req.M && c.T >= req.T && c.N >= req.N, hours, hoursReq: dayHoursReq(cfg, d.dow) };
     });
     const people = staff.map((s, p) => {
       const row = rows[p]; const issues = [];
       const weekHours = weeks.map(([a, b]) => { let h = 0; for (let d = a; d <= b; d++) h += hoursOf(row[d]); return h; });
       const nWeek = weeks.map(([a, b]) => { let n = 0; for (let d = a; d <= b; d++) if (fam(row[d]) === 'N') n++; return n; });
-      let sat = false, sun = false, hasSat = false, hasSun = false, run = 0, maxRun = 0, nAfter = 0;
+      let sat = false, sun = false, run = 0, maxRun = 0, nAfter = 0;
       for (let d = 0; d < days.length; d++) {
         const f = fam(row[d]);
         run = f ? run + 1 : 0; maxRun = Math.max(maxRun, run);
         if (f === 'N' && d + 1 < days.length && fam(row[d + 1])) nAfter++;
         if (days[d].inMonth) {
           const free = !f && !(d > 0 && fam(row[d - 1]) === 'N');
-          if (days[d].dow === 6) { hasSat = true; sat = sat || free; }
-          if (days[d].dow === 0) { hasSun = true; sun = sun || free; }
+          if (days[d].dow === 6 && free) sat = true;
+          if (days[d].dow === 0 && free) sun = true;
         }
       }
-      if (hasSat && !sat) issues.push('Sin sábado libre');
-      if (hasSun && !sun) issues.push('Sin domingo libre');
+      needMsg(weekendNeed(s, p, cfg, ym), sat, sun).forEach((m) => issues.push(m));
       if (nAfter) issues.push('Trabaja justo después de un trasnocho (' + nAfter + ')');
       if (maxRun > 6) issues.push('Más de 6 días seguidos');
-      return { name: s.name, weekHours, nWeek, satFree: sat, sunFree: sun, issues };
+      return { name: s.name, weekHours, nWeek, satFree: sat, sunFree: sun, issues, target: targetOf(s, cfg) };
     });
     const gaps = coverage.filter((c) => !c.ok).length;
     return { coverage, people, gaps, weeks };
@@ -377,7 +458,7 @@ details>summary::-webkit-details-marker{display:none}
     });
     for (let w = 0; w < nW; w++) { const c = ws.getCell(R5, first + w * 8 + 7); c.value = 'HRS'; c.font = { name: 'Tahoma', size: 9, bold: true }; c.alignment = { horizontal: 'center', vertical: 'middle' }; c.border = BORDER; }
 
-    let r = R7; const hourRows = []; const codeRows = []; let lastSection = '';
+    let r = R7; const hourRows = []; const codeRows = []; const codeRows0 = []; let lastSection = '';
     staff.forEach((s, p) => {
       const sec = (s.section || '').trim();
       if (sec && sec !== lastSection) {
@@ -386,7 +467,7 @@ details>summary::-webkit-details-marker{display:none}
         ws.getRow(r).height = 17.1; r++;
       }
       lastSection = sec;
-      const cr = r, hr = r + 1; codeRows.push(cr); hourRows.push(hr);
+      const cr = r, hr = r + 1; codeRows0.push(cr); if (!s.lactario) { codeRows.push(cr); hourRows.push(hr); }
       ws.getRow(cr).height = 17.1; ws.getRow(hr).height = 17.1;
       ws.mergeCells(cr, 1, hr, S.mergeTo);
       const n = ws.getCell(cr, 1); n.value = s.name.toUpperCase(); n.font = { name: 'Tahoma', size: s.name.length > 20 ? 10 : 13, bold: true }; n.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; n.border = BORDER;
@@ -410,7 +491,7 @@ details>summary::-webkit-details-marker{display:none}
     const totRow = r;
     for (let i = 0; i < days.length; i++) {
       const col = first + Math.floor(i / 7) * 8 + (i % 7), L = colL(col);
-      const c = ws.getCell(r, col); c.value = { formula: hourRows.map((h) => `${L}${h}`).join('+'), result: rows.reduce((s, x) => s + hoursOf(x[i]), 0) };
+      const c = ws.getCell(r, col); c.value = { formula: hourRows.map((h) => `${L}${h}`).join('+'), result: rows.reduce((s, x, q) => s + (staff[q].lactario ? 0 : hoursOf(x[i])), 0) };
       c.font = { name: 'Tahoma', size: 10, bold: true }; c.alignment = { horizontal: 'center', vertical: 'middle' }; c.border = BORDER;
       const req = dayHoursReq(cfg, days[i].dow);
       ws.addConditionalFormatting({ ref: `${L}${r}`, rules: [
@@ -422,7 +503,7 @@ details>summary::-webkit-details-marker{display:none}
     for (let w = 0; w < nW; w++) {
       const sc = first + w * 8 + 7;
       const c = ws.getCell(r, sc);
-      let tot = 0; for (let k = 0; k < 7; k++) tot += rows.reduce((s, x) => s + hoursOf(x[w * 7 + k]), 0);
+      let tot = 0; for (let k = 0; k < 7; k++) tot += rows.reduce((s, x, q) => s + (staff[q].lactario ? 0 : hoursOf(x[w * 7 + k])), 0);
       c.value = { formula: codeRows.map((x) => `${colL(sc)}${x}`).join('+'), result: tot }; c.font = { name: 'Tahoma', size: 10, bold: true }; c.alignment = { horizontal: 'center' }; c.border = BORDER;
     }
 
@@ -439,15 +520,17 @@ details>summary::-webkit-details-marker{display:none}
       cf(7, eq(['L', 'MD']), { font: { color: { argb: 'FFFF0000' } } }),
       cf(8, eq(['MC', 'TC', 'PAG', 'PAGN']), { font: { color: { argb: 'FF7030A0' } } }),
     ] });
-    const W = cfg.weeklyHours;
-    for (let w = 0; w < nW; w++) {
-      const sc = colL(first + w * 8 + 7);
-      ws.addConditionalFormatting({ ref: `${sc}${R7}:${sc}${lastRow}`, rules: [
-        { type: 'cellIs', operator: 'greaterThan', formulae: [W], priority: 1, style: { fill: dxfFill('FF000000'), font: { color: { argb: 'FFFF0000' } } } },
-        { type: 'cellIs', operator: 'equal', formulae: [0], priority: 2, style: { fill: dxfFill('FFFFFF00') } },
-        { type: 'cellIs', operator: 'between', formulae: [1, W - 1], priority: 3, style: { font: { color: { argb: 'FFFF0000' } } } },
-      ] });
-    }
+    staff.forEach((st, p) => {
+      const W = targetOf(st, cfg), cr = codeRows0[p];
+      for (let w = 0; w < nW; w++) {
+        const sc = colL(first + w * 8 + 7);
+        ws.addConditionalFormatting({ ref: `${sc}${cr}`, rules: [
+          { type: 'cellIs', operator: 'greaterThan', formulae: [W], priority: 1, style: { fill: dxfFill('FF000000'), font: { color: { argb: 'FFFF0000' } } } },
+          { type: 'cellIs', operator: 'equal', formulae: [0], priority: 2, style: { fill: dxfFill('FFFFFF00') } },
+          { type: 'cellIs', operator: 'between', formulae: [1, W - 1], priority: 3, style: { font: { color: { argb: 'FFFF0000' } } } },
+        ] });
+      }
+    });
 
     const cr0 = totRow + 3;
     days.forEach((d, i) => {
@@ -462,8 +545,9 @@ details>summary::-webkit-details-marker{display:none}
       } else { const l2 = ws.getCell(rr, 1); l2.value = k; l2.font = { name: 'Tahoma', size: 11, bold: true }; }
       days.forEach((d, i) => {
         const col = first + Math.floor(i / 7) * 8 + (i % 7), L = colL(col);
-        const cnt = rows.reduce((s, x) => s + (fam(x[i]) === k ? 1 : 0), 0);
-        const c = ws.getCell(rr, col); c.value = { formula: `COUNTIF(${L}${R7}:${L}${lastRow},"${k}*")`, result: cnt };
+        const cnt = rows.reduce((s, x) => s + (famCov(x[i]) === k ? 1 : 0), 0);
+        const rng = `${L}${R7}:${L}${lastRow}`;
+        const c = ws.getCell(rr, col); c.value = { formula: k === 'N' ? `COUNTIF(${rng},"N*")` : `COUNTIF(${rng},"${k}*")-COUNTIF(${rng},"${k}LA")`, result: cnt };
         c.font = { name: 'Tahoma', size: 10, bold: true }; c.alignment = { horizontal: 'center' }; c.border = BORDER;
         const req = reqFor(cfg, d.dow)[k];
         ws.addConditionalFormatting({ ref: `${L}${rr}`, rules: [
@@ -492,7 +576,7 @@ details>summary::-webkit-details-marker{display:none}
     return wb;
   }
 
-  const api = { MONTHS, DOWL, DOWN, LEGEND, LEGENDS, REGEN, HOURS, DEFAULT_CFG, PATTERN, buildGrid, generate, validate, buildWorkbook, fam, hoursOf, reqFor, dayHoursReq, inVac, colL };
+  const api = { MONTHS, DOWL, DOWN, LEGEND, LEGENDS, REGEN, HOURS, DEFAULT_CFG, PATTERN, buildGrid, generate, validate, famCov, colombiaHolidays, buildWorkbook, fam, hoursOf, reqFor, dayHoursReq, inVac, colL };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Turnos = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -500,7 +584,7 @@ details>summary::-webkit-details-marker{display:none}
 <script type="text/babel" data-presets="react">
 const { useState, useMemo, useEffect, useRef, useCallback } = React;
 const T = window.Turnos;
-const STORE_KEY = 'cuadrantes-enfermeria-v2';
+const STORE_KEY = 'cuadrantes-enfermeria-v3';
 
 const NAMES_AUX = ['ADRIANA NOGUERA','ANGELITA ROMO','MARCELA PARRA','ANA ROSALES','DIANA CHACHINOY','JANETH URBANO','ADRIANA PANTOJA','AMANDA BOTINA','KAROL ORTEGA','XIMENA REYES','JANET LAGOS','MARTHA BASANTE','ANGELA ALVAREZ','ERIKA BOLAÑOS','ELIANA CABRERA','VERONICA LÓPEZ','ALEXANDER CUASTUMAL','LEIDY MARTÍNEZ','VANESA BARRERA','MARY CRUZ TARAPUES','MERY ANDREA JIMENEZ','YAMILET MENESES','ADRIANA BOLAÑOS','LEIDY YANIRA ACHICANOY','ILDA MAIGUAL','DANIELA CASTRO','GABRIELA TULCAN'];
 const NAMES_JEF = ['NATHALIA CIFUENTES','MARIA ALEJANDRA NARVAEZ','VERONICA GUERRERO','LUIS ARIAS','TITO GOMEZ','PAOLA MARTINEZ','MIGUEL CORDOBA','ANYELLY AHUMADA','JAZMIN PINTO','LUZDEY GUAMPE'];
@@ -510,30 +594,36 @@ const MAIN = { aux: ['M', 'T', 'N', 'L'], jef: ['M1', 'M2', 'T1', 'T2', 'N1', 'N
 
 const defaultGroups = () => ({
   jef: {
-    staff: NAMES_JEF.map((n, i) => ({ id: 'j' + (i + 1), name: n, section: '', noNights: false, vac: [] })),
-    cfg: { M: 2, T: 2, TThu: 2, N: 2, weeklyHours: 36 }, months: [],
+    staff: NAMES_JEF.map((n, i) => ({ id: 'j' + (i + 1), name: n, section: '', noNights: false, vac: [],
+      extraM: ['NATHALIA CIFUENTES', 'VERONICA GUERRERO', 'JAZMIN PINTO'].includes(n),
+      ...(n === 'MIGUEL CORDOBA' ? { weeklyHours: 24, noHolidays: true, fixedWeek: { 3: 'M', 4: 'T', 5: 'M', 6: 'T' } } : {}) })),
+    cfg: { M: 2, T: 2, TThu: 2, N: 2, weeklyHours: 36, extraM: 1, extraMDays: [2, 4], weekendMode: 'alt' }, months: [],
     coordinator: { name: 'SANDRA LÓPEZ S.', role: 'COORDINADORA ENF.UCN' },
     footnote: 'MAÑANA 1    TARDE 1\nMAÑANA 2    TARDE 2\nNOCHE 1 - 2\nMAÑANA -TARDE ADMINISTRATIVO\nQUIEN ESTE ASIGNADO CON LOS SEGUNDOS PACIENTES ES EL LÍDER DE EMERGENCIAS DURANTE EL TURNO',
   },
   aux: {
     staff: [
       ...NAMES_AUX.map((n, i) => ({ id: 'a' + (i + 1), name: n, section: '', noNights: false, vac: [] })),
-      { id: 'a28', name: 'SANDRA SANTACRUZ', section: 'LACTARIO', noNights: true, vac: [] },
-      { id: 'a29', name: 'LORENA DAVID', section: 'LACTARIO', noNights: true, vac: [] },
+      { id: 'a28', name: 'SANDRA SANTACRUZ', section: 'LACTARIO', noNights: true, lactario: true, vac: [] },
+      { id: 'a29', name: 'LORENA DAVID', section: 'LACTARIO', noNights: true, lactario: true, vac: [] },
     ],
     cfg: { ...T.DEFAULT_CFG }, months: [], coordinator: { name: 'SANDRA LÓPEZ S.', role: 'COORDINACIÓN ENF. UCN' }, footnote: '',
   },
 });
-// Festivos de Colombia 2026 (Ley Emiliani)
-const FEST_2026 = ['2026-01-01','2026-01-12','2026-03-23','2026-04-02','2026-04-03','2026-05-01','2026-05-18','2026-06-08','2026-06-15','2026-06-29','2026-07-20','2026-08-07','2026-08-17','2026-10-12','2026-11-02','2026-11-16','2026-12-08','2026-12-25'];
-const toHol = (a) => Object.fromEntries(a.map((k) => [k, true]));
+// Festivos de Colombia calculados por año (Ley Emiliani + Semana Santa); holidayEdits guarda lo que el usuario agrega (true) o quita (false)
+const holidaysFor = (year, edits) => {
+  const base = {}; [year - 1, year, year + 1].forEach((y) => Object.assign(base, T.colombiaHolidays(y)));
+  const out = { ...base };
+  Object.entries(edits || {}).forEach(([k, v]) => { if (v) out[k] = out[k] || 'Festivo agregado'; else delete out[k]; });
+  return out;
+};
 
 function nextMonth() { const d = new Date(); return { year: d.getMonth() === 11 ? d.getFullYear() + 1 : d.getFullYear(), month: (d.getMonth() + 1) % 12 }; }
 
 function loadState() {
   try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); if (s && s.groups && s.cells) return s; } catch (e) {}
   const nm = nextMonth();
-  return { tab: 'jef', groups: defaultGroups(), cells: {}, holidays: toHol(FEST_2026), year: nm.year, month: nm.month, nextId: 100, fresh: true };
+  return { tab: 'jef', groups: defaultGroups(), cells: {}, holidayEdits: {}, year: nm.year, month: nm.month, nextId: 100, fresh: true };
 }
 
 const codeClass = (c) => !c ? 'c-e' : (c === 'V' || c === 'IC' || c === 'LIC') ? 'c-v' : c === 'L' ? 'c-l' : T.fam(c) === 'M' ? 'c-m' : T.fam(c) === 'T' ? 'c-t' : T.fam(c) === 'N' ? 'c-n' : 'c-x';
@@ -583,6 +673,10 @@ function StaffPanel({ G, kind, updG, onDelete, nextId }) {
   const [armed, setArmed] = useState(null);
   const upd = (id, patch) => updG((g) => ({ ...g, staff: g.staff.map((x) => (x.id === id ? { ...x, ...patch } : x)) }));
   const add = () => { const id = (kind === 'jef' ? 'j' : 'a') + nextId(); updG((g) => ({ ...g, staff: [...g.staff, { id, name: 'NUEVO ' + GROUPS[kind].one.toUpperCase(), section: '', noNights: false, vac: [] }] })); };
+  const chk = (s, key, label, extra) => (
+    <label className="flex items-center gap-1" style={{ fontSize: 12 }}><input id={key + '-' + s.id} type="checkbox" checked={!!s[key]} onChange={(e) => upd(s.id, { [key]: e.target.checked, ...(extra && e.target.checked ? extra : {}) })} />{label}</label>
+  );
+  const DOWS = [[0, 'D'], [1, 'L'], [2, 'M'], [3, 'M'], [4, 'J'], [5, 'V'], [6, 'S']];
   return (
     <div className="flex flex-col gap-3">
       <div className="overflow-x-auto">
@@ -590,18 +684,39 @@ function StaffPanel({ G, kind, updG, onDelete, nextId }) {
           <thead>
             <tr className="lbl text-left">
               <th className="py-2 pr-2" style={{ minWidth: 190 }}>{kind === 'jef' ? 'Jefe' : 'Auxiliar'}</th>
-              <th className="py-2 pr-2" style={{ minWidth: 110 }}>Sección</th>
-              <th className="py-2 pr-2">Sin noches</th>
+              <th className="py-2 pr-2" style={{ minWidth: 330 }}>Reglas propias</th>
               <th className="py-2 pr-2" style={{ minWidth: 330 }}>Vacaciones (inicio – fin)</th>
               <th />
             </tr>
           </thead>
           <tbody>
-            {G.staff.map((s) => (
+            {G.staff.map((s) => {
+              const fw = s.fixedWeek || null;
+              return (
               <tr key={s.id} style={{ borderTop: '1px solid var(--line)', verticalAlign: 'top' }}>
-                <td className="py-2 pr-2"><input id={'n-' + s.id} className="inp w-full" value={s.name} onChange={(e) => upd(s.id, { name: e.target.value })} aria-label="Nombre" /></td>
-                <td className="py-2 pr-2"><input id={'sec-' + s.id} className="inp w-full" value={s.section} placeholder="—" onChange={(e) => upd(s.id, { section: e.target.value })} aria-label="Sección" /></td>
-                <td className="py-2 pr-2 text-center"><input id={'nn-' + s.id} type="checkbox" checked={s.noNights} onChange={(e) => upd(s.id, { noNights: e.target.checked })} aria-label="Sin noches" /></td>
+                <td className="py-2 pr-2">
+                  <input id={'n-' + s.id} className="inp w-full" value={s.name} onChange={(e) => upd(s.id, { name: e.target.value })} aria-label="Nombre" />
+                  <input id={'sec-' + s.id} className="inp w-full mt-1" value={s.section} placeholder="Sección (ej. LACTARIO)" onChange={(e) => upd(s.id, { section: e.target.value })} aria-label="Sección" />
+                </td>
+                <td className="py-2 pr-2">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 items-center">
+                    <label className="flex items-center gap-1" style={{ fontSize: 12 }}>Horas/sem
+                      <input id={'hw-' + s.id} className="inp num" style={{ width: 62 }} type="number" min="0" placeholder={String(G.cfg.weeklyHours)} value={s.weeklyHours == null ? '' : s.weeklyHours} onChange={(e) => upd(s.id, { weeklyHours: e.target.value === '' ? null : parseInt(e.target.value, 10) || 0 })} /></label>
+                    {chk(s, 'noNights', 'Sin noches')}
+                    {chk(s, 'noHolidays', 'No trabaja festivos')}
+                    {kind === 'aux' && chk(s, 'lactario', 'Lactario (MLA/TLA)', { noNights: true })}
+                    {kind === 'jef' && chk(s, 'extraM', '3.er jefe de mañana (MAD)')}
+                  </div>
+                  <div className="mt-2 flex items-center gap-1 flex-wrap">
+                    <label className="flex items-center gap-1" style={{ fontSize: 12 }}><input id={'fw-' + s.id} type="checkbox" checked={!!fw} onChange={(e) => upd(s.id, { fixedWeek: e.target.checked ? { 1: 'M', 2: 'T', 3: 'M', 4: 'T', 5: 'M' } : null })} />Semana fija</label>
+                    {fw && DOWS.map(([dw, l]) => (
+                      <label key={dw} className="flex flex-col items-center" style={{ fontSize: 10 }}><span className="muted">{l}</span>
+                        <select id={'fw' + dw + '-' + s.id} className="inp" style={{ padding: '2px 2px', width: 46 }} value={fw[dw] || ''} onChange={(e) => { const n = { ...fw }; if (e.target.value) n[dw] = e.target.value; else delete n[dw]; upd(s.id, { fixedWeek: n }); }}>
+                          <option value="">L</option><option value="M">M</option><option value="T">T</option>
+                        </select></label>
+                    ))}
+                  </div>
+                </td>
                 <td className="py-2 pr-2">
                   <div className="flex flex-col gap-1">
                     {s.vac.map((v, i) => (
@@ -623,7 +738,7 @@ function StaffPanel({ G, kind, updG, onDelete, nextId }) {
                   </button>
                 </td>
               </tr>
-            ))}
+            ); })}
           </tbody>
         </table>
       </div>
@@ -645,7 +760,8 @@ function App() {
   useEffect(() => { const t = setTimeout(() => { try { const { fresh, ...rest } = st; localStorage.setItem(STORE_KEY, JSON.stringify({ ...rest, nextId: idRef.current })); } catch (e) {} }, 400); return () => clearTimeout(t); }, [st]);
 
   const kind = st.tab;
-  const { year, month, holidays, cells } = st;
+  const { year, month, cells } = st;
+  const holidays = useMemo(() => holidaysFor(year, st.holidayEdits), [year, st.holidayEdits]);
   const G = st.groups[kind];
   const { staff, cfg } = G;
   const legend = T.LEGENDS[kind];
@@ -659,7 +775,7 @@ function App() {
   const runGenerate = useCallback((base, k, seed) => {
     const g0 = base.groups[k];
     const grid = T.buildGrid(base.year, base.month);
-    const g = T.generate({ staff: g0.staff, days: grid, existing: base.cells, cfg: g0.cfg, seed, keepSpecial: true, regen: T.REGEN[k], slots: k === 'jef' });
+    const g = T.generate({ staff: g0.staff, days: grid, existing: base.cells, cfg: g0.cfg, seed, keepSpecial: true, regen: T.REGEN[k], slots: k === 'jef', holidays: holidaysFor(base.year, base.holidayEdits) });
     const nc = { ...base.cells };
     grid.forEach((d, i) => { const o = { ...(nc[d.key] || {}) }; g0.staff.forEach((s, p) => { if (g.rows[p][i]) o[s.id] = g.rows[p][i]; }); nc[d.key] = o; });
     const mk = mkey(base.year, base.month);
@@ -692,14 +808,18 @@ function App() {
     });
     setMenu(null);
   };
-  const toggleHol = (k) => setSt((s) => { const h = { ...s.holidays }; if (h[k]) delete h[k]; else h[k] = true; return { ...s, holidays: h }; });
+  const toggleHol = (k) => setSt((s) => {
+    const baseOn = !!T.colombiaHolidays(+k.slice(0, 4))[k], cur = !!holidaysFor(+k.slice(0, 4), s.holidayEdits)[k];
+    const e = { ...(s.holidayEdits || {}) }; if (!cur === baseOn) delete e[k]; else e[k] = !cur;
+    return { ...s, holidayEdits: e };
+  });
   const deleteStaff = (id) => updG((g) => ({ ...g, staff: g.staff.filter((x) => x.id !== id) }));
   const setCfg = (k, v) => updG((g) => ({ ...g, cfg: { ...g.cfg, [k]: Math.max(0, parseInt(v || 0, 10) || 0) } }));
   const setTab = (t) => { setMenu(null); setSt((s) => ({ ...s, tab: t })); };
 
   const payload = (k, y, m) => {
     const g0 = st.groups[k], grid = T.buildGrid(y, m);
-    return { kind: k, year: y, month: m, staff: g0.staff, days: grid, rows: rowsOf(g0.staff, grid, cells), holidays, cfg: g0.cfg, coordinator: g0.coordinator, footnote: g0.footnote };
+    return { kind: k, year: y, month: m, staff: g0.staff, days: grid, rows: rowsOf(g0.staff, grid, cells), holidays: holidaysFor(y, st.holidayEdits), cfg: g0.cfg, coordinator: g0.coordinator, footnote: g0.footnote };
   };
   const exportXlsx = async (all) => {
     try {
@@ -727,7 +847,7 @@ function App() {
   const allMonths = [...new Set(ORDER.flatMap((k) => st.groups[k].months))];
   const who = GROUPS[kind].label;
   let lastSec = null;
-  const legendDots = kind === 'jef' ? [['M1', 'Mañana asist.'], ['M2', 'Mañana medic.'], ['T1', 'Tarde 1'], ['T2', 'Tarde 2'], ['N1', 'Noche 1'], ['N2', 'Noche 2'], ['L', 'Libre'], ['V', 'Vacaciones']] : [['M', 'Mañana'], ['T', 'Tarde'], ['N', 'Noche'], ['L', 'Libre'], ['V', 'Vacaciones'], ['MB', 'Otro código']];
+  const legendDots = kind === 'jef' ? [['M1', 'Mañana asist.'], ['M2', 'Mañana medic.'], ['MAD', 'Mañana admin. (3.er jefe)'], ['T1', 'Tarde 1'], ['T2', 'Tarde 2'], ['N1', 'Noche 1'], ['N2', 'Noche 2'], ['L', 'Libre'], ['V', 'Vacaciones']] : [['M', 'Mañana'], ['T', 'Tarde'], ['N', 'Noche'], ['MLA', 'Mañana lactario'], ['TLA', 'Tarde lactario'], ['L', 'Libre'], ['V', 'Vacaciones']];
 
   return (
     <div className="mx-auto flex flex-col gap-4" style={{ maxWidth: 1500 }}>
@@ -769,7 +889,7 @@ function App() {
           <div className="muted" style={{ fontSize: 12 }}>jueves {cfg.TThu}T</div></div>
         <div className="card p-3"><div className="lbl">Meta semanal</div>
           <div className="num" style={{ font: '700 24px var(--mono)' }}>{cfg.weeklyHours} h</div>
-          <div className="muted" style={{ fontSize: 12 }}>por persona (noche = 12 h)</div></div>
+          <div className="muted" style={{ fontSize: 12 }}>por persona (noche = 12 h); hay metas individuales</div></div>
       </section>
 
       <section>
@@ -786,7 +906,7 @@ function App() {
               <tr>
                 <th className="nm" rowSpan={2}>{kind === 'jef' ? 'Jefe' : 'Auxiliar'}</th>
                 {cols.map((c, j) => c.t === 'd'
-                  ? <th key={j} className={'dh ' + (days[c.i].dow === 0 ? 'sun ' : '') + (holidays[days[c.i].key] ? 'fest ' : '') + (!days[c.i].inMonth ? 'out' : '')} onClick={() => toggleHol(days[c.i].key)} title={T.DOWN[days[c.i].dow] + ' ' + days[c.i].dom + (holidays[days[c.i].key] ? ' · festivo' : '')}>{T.DOWL[days[c.i].dow]}</th>
+                  ? <th key={j} className={'dh ' + (days[c.i].dow === 0 ? 'sun ' : '') + (holidays[days[c.i].key] ? 'fest ' : '') + (!days[c.i].inMonth ? 'out' : '')} onClick={() => toggleHol(days[c.i].key)} title={T.DOWN[days[c.i].dow] + ' ' + days[c.i].dom + (holidays[days[c.i].key] ? ' · ' + holidays[days[c.i].key] : '')}>{T.DOWL[days[c.i].dow]}</th>
                   : <th key={j} className="wk" rowSpan={2}>HRS</th>)}
               </tr>
               <tr>
@@ -807,8 +927,8 @@ function App() {
                           const d = days[c.i];
                           return <Cell key={j} k={d.key} id={s.id} v={rows[p][c.i]} locked={T.inVac(s, d.key)} onOpen={openMenu} legend={legend} />;
                         }
-                        const h = val.people[p].weekHours[c.w];
-                        return <td key={j} className={'wk ' + (h > cfg.weeklyHours ? 'hi' : h === 0 ? 'zero' : h < cfg.weeklyHours ? 'lo' : '')}>{h}</td>;
+                        const h = val.people[p].weekHours[c.w], tg = val.people[p].target;
+                        return <td key={j} className={'wk ' + (h > tg ? 'hi' : h === 0 ? 'zero' : h < tg ? 'lo' : '')} title={'Meta ' + tg + ' h'}>{h}</td>;
                       })}
                     </tr>
                   </React.Fragment>
@@ -846,9 +966,9 @@ function App() {
             : <div className="mt-2 flex flex-wrap gap-2">{gapList.map(({ c, i }) => <span key={i} className="chip bad">{dayLbl(i)} · {['M', 'T', 'N'].filter((k) => c[k] < c.req[k]).map((k) => k + ' ' + c[k] + '/' + c.req[k]).join(' · ')}</span>)}</div>}
           <h3 className="lbl mt-4 mb-2">Reglas por persona</h3>
           {issuesCount === 0
-            ? <p style={{ color: 'var(--ok)', fontWeight: 600 }}>Todos tienen sábado y domingo libre, descanso después de cada trasnocho y menos de 7 días seguidos.</p>
+            ? <p style={{ color: 'var(--ok)', fontWeight: 600 }}>Todos tienen su sábado o domingo libre del mes, descanso después de cada trasnocho y menos de 7 días seguidos.</p>
             : <ul className="flex flex-col gap-1" style={{ fontSize: 13 }}>{val.people.filter((p) => p.issues.length).map((p) => <li key={p.name}><b>{p.name}</b> <span className="muted">· {p.issues.join(' · ')}</span></li>)}</ul>}
-          <p className="muted mt-3" style={{ fontSize: 12 }}>El sábado o domingo cuenta como libre si no es el día de recuperación posterior a un trasnocho. Las vacaciones cuentan como libres.</p>
+          <p className="muted mt-3" style={{ fontSize: 12 }}>El fin de semana libre alterna por mes: sábado un mes y domingo el siguiente (o ambos cada mes, según el parámetro). No cuenta el día de recuperación posterior a un trasnocho. Las vacaciones cuentan como libres.</p>
         </div>
 
         <div className="card p-4 min-w-0">
@@ -858,6 +978,23 @@ function App() {
               <label key={k} className="flex flex-col gap-1"><span className="lbl">{l}</span><input id={'cfg-' + kind + k} className="inp num" type="number" min="0" value={cfg[k]} onChange={(e) => setCfg(k, e.target.value)} /></label>
             ))}
           </div>
+          {kind === 'jef' && (
+            <div className="mt-4">
+              <h3 className="lbl mb-2">Días con jefe extra en la mañana (+{cfg.extraM})</h3>
+              <div className="flex flex-wrap gap-2">
+                {[[1, 'Lun'], [2, 'Mar'], [3, 'Mié'], [4, 'Jue'], [5, 'Vie']].map(([dw, l]) => {
+                  const on = (cfg.extraMDays || []).includes(dw);
+                  return <button key={dw} type="button" aria-pressed={on} className="btn" style={on ? { background: 'var(--accent)', color: 'var(--accent-ink)', borderColor: 'var(--accent)' } : {}} onClick={() => updG((g) => ({ ...g, cfg: { ...g.cfg, extraMDays: on ? g.cfg.extraMDays.filter((x) => x !== dw) : [...g.cfg.extraMDays, dw].sort() } }))}>{l}</button>;
+                })}
+              </div>
+              <p className="muted mt-2" style={{ fontSize: 12 }}>El jefe extra sale como MAD y solo puede ser quien tenga marcada la casilla “3.er jefe de mañana” en el personal.</p>
+            </div>
+          )}
+          <label className="flex flex-col gap-1 mt-4"><span className="lbl">Fin de semana libre</span>
+            <select id={'wk-' + kind} className="inp" value={cfg.weekendMode || 'alt'} onChange={(e) => updG((g) => ({ ...g, cfg: { ...g.cfg, weekendMode: e.target.value } }))}>
+              <option value="alt">Alterna: sábado un mes, domingo el siguiente</option>
+              <option value="both">Un sábado y un domingo cada mes</option>
+            </select></label>
           <h3 className="lbl mt-4 mb-2">Responsable (pie del Excel)</h3>
           <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))' }}>
             <input id={'resp-n' + kind} className="inp" placeholder="Nombre" value={G.coordinator.name} onChange={(e) => updG((g) => ({ ...g, coordinator: { ...g.coordinator, name: e.target.value } }))} />
@@ -865,12 +1002,13 @@ function App() {
           </div>
           <h3 className="lbl mt-4 mb-2">Notas al pie del Excel</h3>
           <textarea id={'foot' + kind} className="inp w-full" rows={kind === 'jef' ? 5 : 2} value={G.footnote} placeholder="Una nota por línea" onChange={(e) => updG((g) => ({ ...g, footnote: e.target.value }))} />
-          <h3 className="lbl mt-4 mb-2">Festivos del mes (todos los grupos)</h3>
+          <h3 className="lbl mt-4 mb-2">Festivos de Colombia del mes</h3>
           <div className="flex flex-wrap gap-2 items-center">
-            {days.filter((d) => d.inMonth && holidays[d.key]).map((d) => <button key={d.key} type="button" className="chip" onClick={() => toggleHol(d.key)} title="Quitar festivo">{T.DOWN[d.dow].slice(0, 3)} {d.dom} ×</button>)}
-            {!days.some((d) => d.inMonth && holidays[d.key]) && <span className="muted" style={{ fontSize: 13 }}>Sin festivos. Toca un día en la matriz para marcarlo.</span>}
+            {days.filter((d) => d.inMonth && holidays[d.key]).map((d) => <button key={d.key} type="button" className="chip" onClick={() => toggleHol(d.key)} title="Quitar festivo">{T.DOWN[d.dow].slice(0, 3)} {d.dom} · {holidays[d.key]} ×</button>)}
+            {!days.some((d) => d.inMonth && holidays[d.key]) && <span className="muted" style={{ fontSize: 13 }}>Este mes no tiene festivos.</span>}
           </div>
-          <button type="button" className="btn mt-3" style={{ fontSize: 12 }} onClick={() => setSt((s) => ({ ...s, holidays: { ...s.holidays, ...toHol(FEST_2026) } }))}>Cargar festivos de Colombia 2026</button>
+          <p className="muted mt-2" style={{ fontSize: 12 }}>Se calculan solos para cualquier año. Toca un día en la matriz para agregar o quitar uno.</p>
+          {Object.keys(st.holidayEdits || {}).length > 0 && <button type="button" className="btn mt-2" style={{ fontSize: 12 }} onClick={() => setSt((s) => ({ ...s, holidayEdits: {} }))}>Restablecer festivos de Colombia</button>}
         </div>
       </section>
 
